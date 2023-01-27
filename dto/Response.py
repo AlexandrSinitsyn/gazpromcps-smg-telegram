@@ -2,9 +2,9 @@ from dto.User import User
 
 
 class Response:
-    __addresser = None  # type: User|None
-    __content = None  # type: str|None
-    __csv_path = None  # type: str|None
+    __addresser: User
+    __content: str
+    __csv_path: str
 
     def __init__(self, addresser: User, csv_path: str = None, content: str = None):
         self.__addresser = addresser

@@ -5,9 +5,9 @@ from service.UserService import UserService
 
 
 class Request:
-    __sender = None  # type: User|None
-    __job = None  # type: Job|None
-    __count = -1
+    __sender: User
+    __job: Job
+    __count: int
 
     def __init__(self, sender: User, job: Job, count: int):
         self.__sender = sender

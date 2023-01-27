@@ -1,6 +1,10 @@
+from dataclasses import dataclass
+
+
+@dataclass
 class Job:
-    id = -1
-    section_number = -1
-    message = ''
-    measurement = ''
-    count = -1
+    id: int
+    section_number: int
+    message: str
+    measurement: str
+    count: int
