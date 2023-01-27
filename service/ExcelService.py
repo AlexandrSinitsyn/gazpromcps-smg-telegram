@@ -11,5 +11,5 @@ class ExcelService:
     def import_csv(self, path: str):
         pass
 
-    def export_csv(self):
+    def export_csv(self) -> str:
         pass
