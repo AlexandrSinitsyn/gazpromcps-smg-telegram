@@ -1,10 +1,12 @@
-from dto.User import User
+from typing import Optional
+
+from dto.user import User
 
 
 class Response:
     __addresser: User
-    __content: str
-    __csv_path: str
+    __content: Optional[str]
+    __csv_path: Optional[str]
 
     def __init__(self, addresser: User, csv_path: str = None, content: str = None):
         self.__addresser = addresser
