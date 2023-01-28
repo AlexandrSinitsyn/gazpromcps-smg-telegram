@@ -1,0 +1,31 @@
+version: "3"
+
+services:
+    db:
+        build:
+            context: ./database
+            dockerfile: Dockerfile
+        restart: always
+        env_file:
+            - ./database/.env
+        ports:
+            - "127.0.0.1:5432:5432"
+        volumes:
+            - ./database/:/bot/
+        networks:
+            - internal
+
+    tests:
+        build:
+            dockerfile: ./test/Dockerfile
+        env_file:
+            - ./database/.env
+        command: 'python3 -m unittest /test/db_test.py'
+        networks:
+            - internal
+        depends_on:
+            - db
+
+networks:
+    internal:
+        driver: bridge

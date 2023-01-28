@@ -1,7 +1,4 @@
-from typing import List
-
-from dto.Superuser import Superuser
-from dto.User import User
+from dto.user import *
 
 
 class UserService:
