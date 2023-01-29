@@ -10,6 +10,13 @@ class Job:
     measurement: str
     timestamp: datetime
 
+    @staticmethod
+    def csv_title() -> str:
+        return 'section_number,title,measurement'
+
+    def __str__(self):
+        return f'{self.section_number},{self.title},{self.measurement}'
+
 
 @dataclass
 class CompletedJob:
@@ -17,3 +24,10 @@ class CompletedJob:
     job: Job
     count: int
     timestamp: datetime
+
+    @staticmethod
+    def csv_title() -> str:
+        return Job.csv_title() + ',count,timestamp'
+
+    def __str__(self):
+        return str(self.job) + f',{self.count},{self.timestamp}'

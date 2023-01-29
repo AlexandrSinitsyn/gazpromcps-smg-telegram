@@ -1,3 +1,4 @@
+import random
 import unittest
 
 from dto.job import *
@@ -35,6 +36,53 @@ class JobServiceTestCase(unittest.TestCase):
 
         for j in found:
             self.assertEqual(str(int(j.section_number)), str(j.title))
+
+        self.excel_service.delete_all()
+
+
+class ExcelServiceTestCase(unittest.TestCase):
+    job_service = JobService()
+    excel_service = ExcelService()
+
+    def test_import(self):
+        test_jobs = [Job(i, float(i), str(i), str(i), datetime.now()) for i in range(1, 10)]
+
+        self.excel_service.import_data(test_jobs)
+
+        found = self.job_service.get_all()
+
+        self.assertEqual(len(test_jobs), len(found))
+
+        for (exp, act) in zip(test_jobs, found):
+            self.assertEqual(exp.title, act.title)
+
+        self.excel_service.delete_all()
+
+    def test_export(self):
+        test_jobs = [Job(i, float(i), str(i), str(i), datetime.now()) for i in range(1, 10)]
+
+        self.excel_service.import_data(test_jobs)
+
+        completed = []
+        for i in range(10):
+            idx = test_jobs[random.randint(0, len(test_jobs) - 1)]
+
+            job = self.job_service.get_by_params(idx.section_number, idx.title, idx.measurement)
+
+            completed.append(CompletedJob(i, job, random.randint(1, 100), datetime.now()))
+
+        for cj in completed:
+            self.job_service.day_activity(cj)
+
+        expected_csv = '\n'.join([CompletedJob.csv_title()] + [str(cj) for cj in completed])
+        actual_csv = self.excel_service.export_csv()
+
+        self.assertEqual(len(expected_csv), len(actual_csv))
+
+        print(actual_csv)
+
+        for cj in completed:
+            self.assertTrue(actual_csv.__contains__(str(cj.job) + f',{cj.count}'))
 
         self.excel_service.delete_all()
 

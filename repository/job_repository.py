@@ -4,8 +4,23 @@ from repository.database import *
 from dto.job import *
 
 
-def to_job(row):
+def to_job(row) -> Job:
     return Job(row[0], row[1], row[2], row[3], row[4])
+
+
+def to_cjob(row) -> CompletedJob:
+    # row := (id, job_id, count, timestamp)
+    job = find_by_id(row[1])
+
+    if job is None:
+        job = Job(-1, -1.0, 'unknown or deleted', 'unknown or deleted', datetime.now())
+
+    return CompletedJob(row[0], job, row[2], row[3])
+
+
+def collect_daily() -> List[CompletedJob]:
+    return run_query('SELECT * FROM completed ;') \
+        (lambda rows: [to_cjob(row) for row in rows])
 
 
 def find_all() -> List[Job]:
