@@ -1,15 +1,20 @@
-from typing import List
+from repository.job_repository import *
 
 
 class ExcelService:
-    def __init__(self):
+    @staticmethod
+    def import_data(data: List[Job]):
+        for j in data:
+            save_job(j)
+
+    @staticmethod
+    def import_csv(path: str):
         pass
 
-    def import_data(self, data: List[List[str]]):
-        pass
+    @staticmethod
+    def delete_all():
+        drop_table()
 
-    def import_csv(self, path: str):
-        pass
-
-    def export_csv(self) -> str:
+    @staticmethod
+    def export_csv() -> str:
         pass

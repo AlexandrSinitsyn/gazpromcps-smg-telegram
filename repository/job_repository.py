@@ -5,7 +5,7 @@ from dto.job import *
 
 
 def to_job(row):
-    return Job(int(row[0]), float(row[1]), row[2], row[3], datetime.fromtimestamp(int(row[4])))
+    return Job(row[0], row[1], row[2], row[3], row[4])
 
 
 def find_all() -> List[Job]:
@@ -14,12 +14,12 @@ def find_all() -> List[Job]:
 
 
 def find_by_section(section_number: int) -> List[Job]:
-    return run_query(f'SELECT * FROM job where section_number={section_number} ;') \
+    return run_query(f'SELECT * FROM job where section_number=%(sn)s ;', sn=section_number) \
         (lambda rows: [to_job(row) for row in rows])
 
 
 def find_by_measurement(measurement: str) -> List[Job]:
-    return run_query(f'SELECT * FROM job where measurement={measurement} ;') \
+    return run_query(f'SELECT * FROM job where measurement=%(m)s ;', m=measurement) \
         (lambda rows: [to_job(row) for row in rows])
 
 
@@ -29,19 +29,30 @@ def find_by_id(job_id: int) -> Optional[Job]:
             return to_job(row)
         return None
 
-    return run_query(f'SELECT * FROM job where id={job_id} ;')(find)
+    return run_query('SELECT * FROM job where id=%(ji)s ;', ji=job_id)(find)
 
 
-def find_by_params(section_number: float, message: str, measurement: str) -> Optional[Job]:
+def find_by_params(section_number: float, title: str, measurement: str) -> Optional[Job]:
     def find(rows):
         for row in rows:
             return to_job(row)
         return None
 
     return run_query(
-            f'SELECT * FROM job where'
-            f'section_number={section_number} AND message={message} AND measurement={measurement} ;')(find)
+        f'SELECT * FROM job where section_number=%(sn)s AND title=%(t)s AND measurement=%(m)s ;',
+        sn=section_number, t=title, m=measurement)(find)
+
+
+def save_job(job: Job):
+    run_query(f'INSERT INTO job (section_number, title, measurement) VALUES (%(sn)s, %(t)s, %(m)s) ;',
+              sn=job.section_number, t=job.title, m=job.measurement)(id)
 
 
 def save_cjob(completed_job: CompletedJob):
-    run_query(f'INSERT INTO completed (job_id, count) VALUES ({completed_job.job.id}, {completed_job.count}) ;')(id)
+    run_query(f'INSERT INTO completed (job_id, count) VALUES (%(ji)s, %(c)s) ;',
+              ji=completed_job.job.id, c=completed_job.count)(id)
+
+
+def drop_table():
+    run_query(f'TRUNCATE TABLE job CASCADE ;')(id)
+    run_query(f'TRUNCATE TABLE completed CASCADE ;')(id)

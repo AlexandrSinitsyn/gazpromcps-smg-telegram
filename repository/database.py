@@ -9,9 +9,9 @@ connection = psycopg2.connect(dbname=db_name, user=db_user, password=db_password
                               host='127.0.0.1', port=5432)
 
 
-def run_query(query: str):
+def run_query(query: str, **kwargs):
     def inner(fn):
         with connection.cursor() as cursor:
-            cursor.execute(query)
+            cursor.execute(query, kwargs)
             return fn(cursor)
     return inner

@@ -10,7 +10,7 @@ Requests have format of `type <count> comment`.
 
 CSV table is arranged as:
 
-| Section number | job name        | measurement | code      | ... |
+| Section number | job title       | measurement | code      | ... |
 |----------------|-----------------|-------------|-----------|-----|
 | 1              | Bridges         | piece       | 1234.5678 | ... |
 | 2              | Concrete works  | m3          | 4321.5678 | ... |

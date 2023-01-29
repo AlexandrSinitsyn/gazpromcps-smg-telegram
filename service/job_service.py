@@ -19,8 +19,8 @@ class JobService:
         return find_by_id(job_id)
 
     @staticmethod
-    def get_by_params(section_number: float, message: str, measurement: str) -> Optional[Job]:
-        return find_by_params(section_number, message, measurement)
+    def get_by_params(section_number: float, title: str, measurement: str) -> Optional[Job]:
+        return find_by_params(section_number, title, measurement)
 
     @staticmethod
     def day_activity(completed_job: CompletedJob):

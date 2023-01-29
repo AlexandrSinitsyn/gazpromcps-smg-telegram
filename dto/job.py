@@ -6,7 +6,7 @@ from datetime import datetime
 class Job:
     id: int
     section_number: float
-    message: str
+    title: str
     measurement: str
     timestamp: datetime
 
