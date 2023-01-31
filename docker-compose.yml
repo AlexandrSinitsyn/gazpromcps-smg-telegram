@@ -7,7 +7,7 @@ services:
             dockerfile: Dockerfile
         restart: always
         env_file:
-            - ./database/.env
+            - database/.env
         ports:
             - "127.0.0.1:5432:5432"
         volumes:
@@ -17,10 +17,25 @@ services:
 
     tests:
         build:
+            context: .
             dockerfile: ./test/Dockerfile
         env_file:
-            - ./database/.env
-        command: 'python3 -m unittest /test/db_test.py'
+            - database/.env
+        command: 'python3 -m unittest test/db_test.py'
+        networks:
+            - internal
+        depends_on:
+            - db
+
+    bot:
+        build:
+            context: .
+            dockerfile: ./bot/Dockerfile
+        restart: always
+        env_file:
+            - database/.env
+            - bot/.env
+        command: 'python3 bot/bot.py'
         networks:
             - internal
         depends_on:

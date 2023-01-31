@@ -4,9 +4,10 @@ import psycopg2
 db_name = os.environ['POSTGRES_DB']
 db_user = os.environ['POSTGRES_USER']
 db_password = os.environ['POSTGRES_PASSWORD']
+db_host = os.environ['POSTGRES_HOST']
 
 connection = psycopg2.connect(dbname=db_name, user=db_user, password=db_password,
-                              host='127.0.0.1', port=5432)
+                              host=db_host, port=5432)
 
 
 def run_query(query: str, **kwargs):
