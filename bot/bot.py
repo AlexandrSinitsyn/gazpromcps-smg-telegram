@@ -1,26 +1,29 @@
 import logging
 import os
 
-from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes, \
-    ApplicationBuilder
+# noinspection PyPackageRequirements
+from telegram.ext import CommandHandler, ContextTypes, \
+    ApplicationBuilder, MessageHandler, CallbackQueryHandler
+# noinspection PyPackageRequirements
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+# noinspection PyPackageRequirements
+from telegram.ext.filters import Regex
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-works = ['work1', 'work2', 'work3', 'work4', 'work5', 'work6', 'work7', 'work8', 'work9', 'work10', 'work11', 'work12',
-         'work13']
+works = ['Первая супер важная и особенная, а еще интересная, необходимая работа'] + ['work' + str(i) for i in range(12)]
 
-first_element = 8
+first_element = 0
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Здравствуйте! Внесите данные через меня")
 
 
-async def make_report(update: Update):
+async def make_report(update: Update, _):
     await update.message.reply_text(make_message(first_element), reply_markup=make_button_message(first_element))
 
 
@@ -69,10 +72,13 @@ async def button(update, context):
 
 
 async def select_number(query, update, context):
-    message = f'Вид работы: "{works[int(query.data)]}"\nВведите количество:'
+    message = f'Вид работы: "{works[int(query.data)]}":'
     await context.bot.editMessageText(chat_id=query.message.chat_id,
                                       message_id=update.callback_query.message.message_id,
                                       text=message)
+
+async def inline_query(update, context):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
 
 
 if __name__ == '__main__':
@@ -84,5 +90,6 @@ if __name__ == '__main__':
     application.add_handler(start_handler)
     application.add_handler(make_report_handler)
     application.add_handler(CallbackQueryHandler(button))
+    application.add_handler(MessageHandler(Regex('\d+'), inline_query))
 
     application.run_polling()
