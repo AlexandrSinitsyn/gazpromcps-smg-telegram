@@ -35,8 +35,6 @@ services:
         env_file:
             - database/.env
             - bot/.env
-        volumes:
-            - .:/bot/
         command: 'python3 bot/bot.py'
         networks:
             - internal

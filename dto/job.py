@@ -11,6 +11,10 @@ class Job:
     timestamp: datetime
 
     @staticmethod
+    def fake():
+        return Job(-1, -1, 'unknown', 'unknown', datetime.now())
+
+    @staticmethod
     def csv_title() -> str:
         return 'section_number,title,measurement'
 

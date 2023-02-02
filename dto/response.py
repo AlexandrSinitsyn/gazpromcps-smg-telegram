@@ -13,6 +13,9 @@ class Response:
         self.__csv_path = csv_path
         self.__content = content
 
+    def content(self):
+        return self.__content
+
     def from_csv(self):
         with open(self.__csv_path, 'r') as f:
             self.__content = '\n'.join(f.readline())
