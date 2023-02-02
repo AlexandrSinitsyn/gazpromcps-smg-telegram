@@ -16,7 +16,8 @@ logging.basicConfig(
 
 works = ['Первая супер важная и особенная, а еще интересная, необходимая работа'] + ['work' + str(i) for i in range(12)]
 
-first_element = 0
+LIST_SIZE = 8
+first_index_pointer = 0
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -24,15 +25,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def make_report(update: Update, _):
-    await update.message.reply_text(make_message(first_element), reply_markup=make_button_message(first_element))
+    await update.message.reply_text(make_message(first_index_pointer), reply_markup=make_button_message(first_index_pointer))
 
 
 def make_button_message(first):
-    last_element = first + 8
-    if last_element > len(works):
-        last_element = len(works)
     button_list = [
-        [InlineKeyboardButton(str(i + 1), callback_data=i) for i in range(first, last_element)],
+        [InlineKeyboardButton(str(i + 1), callback_data=i) for i in range(first, min(first + LIST_SIZE, len(works)))],
 
         [InlineKeyboardButton("Назад", callback_data='previous'), InlineKeyboardButton("Вперёд", callback_data='next')]
     ]
@@ -41,32 +39,22 @@ def make_button_message(first):
 
 
 def make_message(first):
-    message = 'Выберите вид работы:'
-    last_element = first + 8
-    if last_element > len(works):
-        last_element = len(works)
-    for i in range(first, last_element):
-        message += f'\n{i + 1}    {works[i]}'
-    return message
+    return '\n'.join(['Выберите вид работы:'] + [f'{i + 1}\t{e}' for i, e in enumerate(works)][first : first + LIST_SIZE])
 
 
 async def button(update, context):
+    global first_index_pointer
+
     query = update.callback_query
-    new_first = first_element
-    if query.data == 'next':
-        if new_first + 8 < len(works):
-            new_first += 8
+
+    if query.data == 'next' or query.data == 'previous':
+        first_index_pointer =\
+            min(first_index_pointer + LIST_SIZE, len(works)) if query.data == 'next'\
+                else max(first_index_pointer - LIST_SIZE, 0)
+
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=update.callback_query.message.message_id,
-                                          text=make_message(new_first), reply_markup=make_button_message(new_first))
-    elif query.data == 'previous':
-        if new_first - 8 < 0:
-            new_first = 0
-        else:
-            new_first -= 8
-        await context.bot.editMessageText(chat_id=query.message.chat_id,
-                                          message_id=update.callback_query.message.message_id,
-                                          text=make_message(new_first), reply_markup=make_button_message(new_first))
+                                          text=make_message(first_index_pointer), reply_markup=make_button_message(first_index_pointer))
     else:
         await select_number(query, update, context)
 
@@ -76,6 +64,7 @@ async def select_number(query, update, context):
     await context.bot.editMessageText(chat_id=query.message.chat_id,
                                       message_id=update.callback_query.message.message_id,
                                       text=message)
+
 
 async def inline_query(update, context):
     await context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
