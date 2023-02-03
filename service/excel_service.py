@@ -5,6 +5,9 @@ from repository.job_repository import *
 path_to_done = '/bot/storage/done/'
 path_to_job_list = '/bot/storage/jobs/'
 
+os.makedirs(path_to_done, exist_ok=True)
+os.makedirs(path_to_job_list, exist_ok=True)
+
 
 class ExcelService:
     @staticmethod
@@ -38,11 +41,11 @@ class ExcelService:
         return '\n'.join([CompletedJob.csv_title()] + [str(cj) for cj in collect_daily()])
 
     @staticmethod
-    def save():
+    def save() -> str:
         now = datetime.now()
 
-        with open(path_to_done + 'save_' + str(now), 'w', newline='') as f:
-            w = csv.writer(f, delimiter=',')
+        file_name = path_to_done + 'save_' + datetime.strftime(now, '%Y%m%d_%H%M%S')
+        with open(file_name, 'w', newline='') as f:
+            f.write(ExcelService.export_csv())
 
-            for row in map(str, collect_daily()):
-                w.writerow(row)
+        return file_name

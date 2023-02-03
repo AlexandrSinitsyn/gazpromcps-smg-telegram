@@ -11,13 +11,12 @@ services:
         ports:
             - "127.0.0.1:5432:5432"
         volumes:
-            - ./database/:/bot/
+            - ./database/:/db/
         networks:
             - internal
 
     tests:
         build:
-            context: .
             dockerfile: ./test/Dockerfile
         env_file:
             - database/.env
@@ -29,13 +28,12 @@ services:
 
     bot:
         build:
-            context: .
-            dockerfile: ./bot/Dockerfile
+            dockerfile: controller/Dockerfile
         restart: always
         env_file:
             - database/.env
-            - bot/.env
-        command: 'python3 bot/bot.py'
+            - controller/.env
+        command: 'python3 main.py'
         networks:
             - internal
         depends_on:

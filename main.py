@@ -1,16 +1,35 @@
-# This is a sample Python script.
+import logging
+import os
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+# noinspection PyPackageRequirements
+from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler, CallbackQueryHandler
+# noinspection PyPackageRequirements
+from telegram.ext.filters import Regex
+
+from controller.bot import *
+import dto
+import database
+from database.script import run
+import repository
+import service
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    run()
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    TOKEN = os.environ.get('TOKEN')
+    application = ApplicationBuilder().token(TOKEN).build()
+
+    for name in ['start', 'make_report', 'export_text', 'export_csv']:
+        application.add_handler(CommandHandler(name, locals()[name]))
+
+    application.add_handler(CallbackQueryHandler(button))
+    application.add_handler(MessageHandler(Regex('^\d+$'), inline_query))
+
+    application.run_polling()
