@@ -7,7 +7,7 @@ class JobService:
         return find_all()
 
     @staticmethod
-    def get_by_section(section_number: int) -> List[Job]:
+    def get_by_section(section_number: float) -> List[Job]:
         return find_by_section(section_number)
 
     @staticmethod

@@ -28,7 +28,7 @@ def find_all() -> List[Job]:
         (lambda rows: [to_job(row) for row in rows])
 
 
-def find_by_section(section_number: int) -> List[Job]:
+def find_by_section(section_number: float) -> List[Job]:
     return run_query(f'SELECT * FROM job where section_number=%(sn)s ;', sn=section_number) \
         (lambda rows: [to_job(row) for row in rows])
 

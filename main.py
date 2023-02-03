@@ -1,6 +1,15 @@
+import logging
+import os
+
+# noinspection PyPackageRequirements
+from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler, CallbackQueryHandler
+# noinspection PyPackageRequirements
+from telegram.ext.filters import Regex
+
 from controller.bot import *
 import dto
 import database
+from database.script import run
 import repository
 import service
 
@@ -12,6 +21,8 @@ logging.basicConfig(
 
 
 if __name__ == '__main__':
+    run()
+
     TOKEN = os.environ.get('TOKEN')
     application = ApplicationBuilder().token(TOKEN).build()
 

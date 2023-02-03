@@ -17,7 +17,6 @@ services:
 
     tests:
         build:
-            context: .
             dockerfile: ./test/Dockerfile
         env_file:
             - database/.env
@@ -29,7 +28,6 @@ services:
 
     bot:
         build:
-            context: .
             dockerfile: controller/Dockerfile
         restart: always
         env_file:
