@@ -30,6 +30,13 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler(name, locals()[name]))
 
     application.add_handler(CallbackQueryHandler(button))
-    application.add_handler(MessageHandler(Regex('^\d+$'), inline_query))
+    application.add_handler(MessageHandler(Regex('^\s*\d+\s*$'), accept_count))
+    # <ws>
+    #   section_number <comma> <ws>
+    #   name <comma> <ws>
+    #   count <comma> <ws>
+    #   measurement
+    # <ws>
+    application.add_handler(MessageHandler(Regex('^\s*([0-9]*[.])?[0-9]+,\s*[^,]+,\s*\d+,\s*\S+\s*$'), full_request))
 
     application.run_polling()

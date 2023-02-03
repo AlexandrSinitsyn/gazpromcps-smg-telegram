@@ -1,3 +1,4 @@
+import re
 from typing import List
 
 # noinspection PyPackageRequirements
@@ -143,17 +144,33 @@ async def select_number(context, job, message):
     session.apply(job_service, job.section_number, job.title, job.measurement)
 
 
-async def inline_query(update, context):
-    try:
-        request = session.apply(int(update.message.text))
-    except TypeError:
-        return
+async def accept_count(update, context):
+    request = session.apply(int(update.message.text))
 
+    await run_request(update, context, request)
+
+
+async def full_request(update: Update, context):
+    # 0 - full
+    # 1 - section_number
+    # 2 - `part before dot` section_number
+    # 3 - title
+    # 4 - count
+    # 5 - measurement
+    match = re.search('^\s*((\d*[.])?\d+),\s*([^,]+),\s*(\d+),\s*(\S+)\s*$', update.message.text)
+
+    session.reset()
+    session.apply(user_service, update.message.from_user.id)
+    session.apply(job_service, float(match.group(1)), match.group(3), match.group(5))
+    request = session.apply(int(match.group(4)))
+
+    await run_request(update, context, request)
+
+
+async def run_request(update, context, request):
     try:
         process(request)
-    except RequestError as re:
-        await send_message(update, context, 'Request error: ' + re.message)
-
+    except RequestError as e:
+        await send_message(update, context, 'Request error: ' + e.message)
     await send_message(update, context, 'Ваши данные успешно добавлены')
-
     session.reset()
