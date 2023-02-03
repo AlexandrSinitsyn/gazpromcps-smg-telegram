@@ -37,7 +37,8 @@ class Session:
         self.pointer = max(self.pointer - LIST_SIZE, 0)
 
     def move_right(self):
-        self.pointer = min(self.pointer + LIST_SIZE, len(self.jobs))
+        if self.pointer + LIST_SIZE <= len(self.jobs):
+            self.pointer += LIST_SIZE
 
     def interval(self) -> List[Job]:
         return self.jobs[self.pointer: min(self.pointer + LIST_SIZE, len(self.jobs))]
@@ -45,11 +46,11 @@ class Session:
     def change_lang(self, lang: str):
         self.locale = lang
 
-        self.__bundle = ResourceBundle.get_bundle('MessageBundle', self.locale)
+        self.__bundle = ResourceBundle.get_bundle('./resources/MessageBundle', self.locale)
 
     def message(self, key: str) -> str:
         if self.__bundle is None:
-            self.__bundle = ResourceBundle.get_bundle('MessageBundle', self.locale)
+            self.__bundle = ResourceBundle.get_bundle('./resources/MessageBundle', self.locale)
 
         return self.__bundle.get(key)
 
@@ -95,7 +96,8 @@ async def start(update: Update, context):
 
 # noinspection PyShadowingBuiltins
 async def help(update: Update, context):
-    await send_message(update, context, session.message('help'))
+    await send_message(update, context,
+                       session.message('description') + '\n\n' + session.message('help'))
 
 
 async def make_report(update: Update, context):
@@ -204,6 +206,7 @@ async def run_request(update, context, request):
 
         await send_message(update, context, session.message('accepted'))
     except RequestError as e:
-        await send_message(update, context, session.message('error') + ': ' + e.message)
+        await send_message(update, context,
+                           session.message('error') + ': ' + session.message(e.bundle_key))
 
     session.reset()

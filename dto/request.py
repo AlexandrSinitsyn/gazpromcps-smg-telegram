@@ -30,15 +30,18 @@ class Request:
 
     def get_job(self) -> CompletedJob:
         if self.__count < 1:
-            raise RequestError('Invalid count. Number of completed jobs should be strictly greater than 0')
+            raise RequestError('invalid-count')
+
+        if self.__job is None:
+            raise RequestError('job-no-found')
 
         return CompletedJob(-1, self.__job, self.__count, datetime.now())
 
 
 class RequestError(Exception):
-    message: str
+    bundle_key: str
 
     def __init__(self, message):
         super().__init__(message)
 
-        self.message = message
+        self.bundle_key = message
