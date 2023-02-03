@@ -32,6 +32,9 @@ class Request:
         if self.__count < 1:
             raise RequestError('invalid-count')
 
+        if self.__count > 2_147_483_647:
+            raise RequestError('to-large')
+
         if self.__job is None:
             raise RequestError('job-no-found')
 

@@ -23,6 +23,8 @@ class Session:
     __bundle = None  # type: ResourceBundle
 
     def start(self):
+        self.reset()
+
         self.jobs = job_service.get_all()
 
     def apply(self, *args):
@@ -57,8 +59,6 @@ class Session:
     def reset(self):
         self.pointer = 0
         self.request_builder = None
-
-        self.start()
 
 
 LIST_SIZE = 8
@@ -119,12 +119,14 @@ async def export_text(update: Update, context):
     await send_message(update, context, answer(request).content())
 
 
-async def ru(*_):
+async def ru(update, context):
     session.change_lang('ru')
+    await send_message(update, context, session.message('to-ru'))
 
 
-async def en(*_):
+async def en(update, context):
     session.change_lang('en')
+    await send_message(update, context, session.message('to-ens'))
 
 
 def show_job_list_navigation():
