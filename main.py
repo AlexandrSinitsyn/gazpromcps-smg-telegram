@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     languages = ['ru', 'en']
 
-    for name in ['start', 'make_report', 'export_text', 'export_csv'] + languages:
+    for name in ['start', 'help', 'make_report', 'export_text', 'export_csv'] + languages:
         application.add_handler(CommandHandler(name, locals()[name]))
 
     application.add_handler(CallbackQueryHandler(button))

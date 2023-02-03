@@ -93,6 +93,11 @@ async def start(update: Update, context):
     await send_message(update, context, session.message('start'))
 
 
+# noinspection PyShadowingBuiltins
+async def help(update: Update, context):
+    await send_message(update, context, session.message('help'))
+
+
 async def make_report(update: Update, context):
     session.start()
 
