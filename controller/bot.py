@@ -1,4 +1,5 @@
 import re
+import ResourceBundle
 from typing import List
 
 # noinspection PyPackageRequirements
@@ -18,6 +19,8 @@ class Session:
     pointer = 0
     request_builder = None
     jobs = None
+    locale = 'ru'
+    __bundle = None  # type: ResourceBundle
 
     def start(self):
         self.jobs = job_service.get_all()
@@ -38,6 +41,17 @@ class Session:
 
     def interval(self) -> List[Job]:
         return self.jobs[self.pointer: min(self.pointer + LIST_SIZE, len(self.jobs))]
+
+    def change_lang(self, lang: str):
+        self.locale = lang
+
+        self.__bundle = ResourceBundle.get_bundle('MessageBundle', self.locale)
+
+    def message(self, key: str) -> str:
+        if self.__bundle is None:
+            self.__bundle = ResourceBundle.get_bundle('MessageBundle', self.locale)
+
+        return self.__bundle.get(key)
 
     def reset(self):
         self.pointer = 0
@@ -76,7 +90,7 @@ async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE, messa
 
 
 async def start(update: Update, context):
-    await send_message(update, context, "Здравствуйте! Вы можете внести данные через меня")
+    await send_message(update, context, session.message('start'))
 
 
 async def make_report(update: Update, context):
@@ -98,6 +112,14 @@ async def export_text(update: Update, context):
     await send_message(update, context, answer(request).content())
 
 
+async def ru(*_):
+    session.change_lang('ru')
+
+
+async def en(*_):
+    session.change_lang('en')
+
+
 def show_job_list_navigation():
     button_list = [
         [InlineKeyboardButton(str(job.section_number), callback_data=job.id) for job in session.interval()],
@@ -109,7 +131,7 @@ def show_job_list_navigation():
 
 
 def show_job_list():
-    return '\n'.join(['Выберите вид работы:'] +
+    return '\n'.join([session.message('in-type')] +
                      [str(job).replace(',', '\t') for job in session.interval()])
 
 
@@ -137,9 +159,13 @@ async def button(update, context):
 
 
 async def select_number(context, job, message):
+    text = session.message('work-type') + ': ' +\
+           str(job).replace(',', '\t') + ':\n' +\
+           session.message('in-count') + ':'
+
     await context.bot.editMessageText(chat_id=message.chat_id,
                                       message_id=message.message_id,
-                                      text='Вид работы: ' + str(job).replace(',', '\t') + ':\nВведите количество:')
+                                      text=text)
 
     session.apply(job_service, job.section_number, job.title, job.measurement)
 
@@ -170,7 +196,9 @@ async def full_request(update: Update, context):
 async def run_request(update, context, request):
     try:
         process(request)
+
+        await send_message(update, context, session.message('accepted'))
     except RequestError as e:
-        await send_message(update, context, 'Request error: ' + e.message)
-    await send_message(update, context, 'Ваши данные успешно добавлены')
+        await send_message(update, context, session.message('error') + ': ' + e.message)
+
     session.reset()
