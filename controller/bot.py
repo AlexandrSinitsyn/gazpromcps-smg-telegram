@@ -131,8 +131,8 @@ def show_job_list_navigation():
 
         [InlineKeyboardButton("←", callback_data='previous'), InlineKeyboardButton("→", callback_data='next')]
     ]
-    reply_markup = InlineKeyboardMarkup(button_list)
-    return reply_markup
+
+    return InlineKeyboardMarkup(button_list)
 
 
 def show_job_list():
@@ -140,7 +140,7 @@ def show_job_list():
                      [str(job).replace(',', '\t') for job in session.interval()])
 
 
-async def button(update, context):
+async def navigation(update, context):
     query = update.callback_query
 
     if query.data == 'next' or query.data == 'previous':
