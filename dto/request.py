@@ -29,4 +29,16 @@ class Request:
         return Response(self.__sender, csv_path, content)
 
     def get_job(self) -> CompletedJob:
+        if self.__count < 1:
+            raise RequestError('Invalid count. Number of completed jobs should be strictly greater than 0')
+
         return CompletedJob(-1, self.__job, self.__count, datetime.now())
+
+
+class RequestError(Exception):
+    message: str
+
+    def __init__(self, message):
+        super().__init__(message)
+
+        self.message = message

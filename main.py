@@ -1,16 +1,24 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+from controller.bot import *
+import dto
+import database
+import repository
+import service
 
 
-# Press the green button in the gutter to run the script.
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    TOKEN = os.environ.get('TOKEN')
+    application = ApplicationBuilder().token(TOKEN).build()
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    for name in ['start', 'make_report', 'export_text', 'export_csv']:
+        application.add_handler(CommandHandler(name, locals()[name]))
+
+    application.add_handler(CallbackQueryHandler(button))
+    application.add_handler(MessageHandler(Regex('^\d+$'), inline_query))
+
+    application.run_polling()
