@@ -18,6 +18,7 @@ services:
     tests:
         build:
             dockerfile: ./test/Dockerfile
+            context: .
         env_file:
             - database/.env
         command: 'python3 -m unittest test/db_test.py'
@@ -28,7 +29,8 @@ services:
 
     bot:
         build:
-            dockerfile: controller/Dockerfile
+            dockerfile: ./controller/Dockerfile
+            context: .
         restart: always
         env_file:
             - database/.env
