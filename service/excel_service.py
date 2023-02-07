@@ -30,7 +30,7 @@ class ExcelService:
 
     @staticmethod
     def rollback(timestamp: datetime):
-        ExcelService.import_csv('save_' + str(timestamp))
+        ExcelService.import_csv('save_' + str(timestamp) + '.csv')
 
     @staticmethod
     def delete_all():
@@ -44,8 +44,8 @@ class ExcelService:
     def save() -> str:
         now = datetime.now()
 
-        file_name = path_to_done + 'save_' + datetime.strftime(now, '%Y%m%d_%H%M%S')
-        with open(file_name, 'w', newline='') as f:
+        file_name = path_to_done + 'save_' + datetime.strftime(now, '%Y%m%d_%H%M%S') + '.csv'
+        with open(file_name, 'w', newline='', encoding='utf-8') as f:
             f.write(ExcelService.export_csv())
 
         return file_name
