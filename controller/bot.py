@@ -126,7 +126,7 @@ async def ru(update, context):
 
 async def en(update, context):
     session.change_lang('en')
-    await send_message(update, context, session.message('to-ens'))
+    await send_message(update, context, session.message('to-en'))
 
 
 def show_job_list_navigation():
