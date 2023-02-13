@@ -5,7 +5,7 @@ from typing import List
 # noinspection PyPackageRequirements
 from telegram.ext import ContextTypes
 # noinspection PyPackageRequirements
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 
 from dto.job import Job
 from dto.request import Request, RequestError
@@ -86,18 +86,20 @@ def answer(request: Request, as_file: bool = False, store: bool = False) -> Resp
         return request.response(content=csv)
 
 
-async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str, reply_markup):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=message, reply_markup=reply_markup)
 
 
 async def start(update: Update, context):
-    await send_message(update, context, session.message('start'))
+    await send_message(update, context, session.message('start'), reply_markup=ReplyKeyboardMarkup(
+        [['Создать новый отчет'], ['Импортировать текстом'], ['Импортировать в csv'], ['EN', 'RUS', 'OTHER']],
+        one_time_keyboard=True))
 
 
 # noinspection PyShadowingBuiltins
 async def help(update: Update, context):
     await send_message(update, context,
-                       session.message('description') + '\n\n' + session.message('help'))
+                       session.message('description') + '\n\n' + session.message('help'), None)
 
 
 async def make_report(update: Update, context):
@@ -116,17 +118,17 @@ async def export_csv(update: Update, context):
 async def export_text(update: Update, context):
     request = Request(user_service.get_by_id(update.message.from_user.id), Job.fake(), -1)
 
-    await send_message(update, context, answer(request).content())
+    await send_message(update, context, answer(request).content(), None)
 
 
 async def ru(update, context):
     session.change_lang('ru')
-    await send_message(update, context, session.message('to-ru'))
+    await send_message(update, context, session.message('to-ru'), None)
 
 
 async def en(update, context):
     session.change_lang('en')
-    await send_message(update, context, session.message('to-en'))
+    await send_message(update, context, session.message('to-en'), None)
 
 
 def show_job_list_navigation():
@@ -185,6 +187,21 @@ async def accept_count(update, context):
     await run_request(update, context, request)
 
 
+async def buttons_text(update, context):
+    if update.message.text == 'Создать новый отчет':
+        await make_report(update, context)
+    elif update.message.text == 'Импортировать текстом':
+        await export_text(update, context)
+    elif update.message.text == 'Импортировать в csv':
+        await export_csv(update, context)
+    elif update.message.text == 'EN':
+        await en(update, context)
+    elif update.message.text == 'RUS':
+        await ru(update, context)
+    # elif update.message.text == 'OTHER':
+    #     await en(update, context)
+
+
 async def full_request(update: Update, context):
     # 0 - full
     # 1 - section_number
@@ -206,9 +223,9 @@ async def run_request(update, context, request):
     try:
         process(request)
 
-        await send_message(update, context, session.message('accepted'))
+        await send_message(update, context, session.message('accepted'), None)
     except RequestError as e:
         await send_message(update, context,
-                           session.message('error') + ': ' + session.message(e.bundle_key))
+                           session.message('error') + ': ' + session.message(e.bundle_key), None)
 
     session.reset()

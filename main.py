@@ -2,7 +2,7 @@ import logging
 import os
 
 # noinspection PyPackageRequirements
-from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler, CallbackQueryHandler
+from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler, CallbackQueryHandler, filters
 # noinspection PyPackageRequirements
 from telegram.ext.filters import Regex
 
@@ -33,6 +33,7 @@ if __name__ == '__main__':
 
     application.add_handler(CallbackQueryHandler(navigation))
     application.add_handler(MessageHandler(Regex('^\s*[+-]?\d+\s*$'), accept_count))
+    application.add_handler(MessageHandler(filters.Text(), buttons_text))
     # <ws>
     #   section_number <comma> <ws>
     #   name <comma> <ws>
