@@ -30,9 +30,9 @@ if __name__ == '__main__':
 
     for name in ['start', 'help', 'make_report', 'export_text', 'export_csv'] + languages:
         application.add_handler(CommandHandler(name, locals()[name]))
-
+    # Regex('^\s*[+-]?\d+\s*$')
     application.add_handler(CallbackQueryHandler(navigation))
-    application.add_handler(MessageHandler(Regex('^\s*[+-]?\d+\s*$'), accept_count))
+    application.add_handler(MessageHandler(filters.Text(), accept_count))
     application.add_handler(MessageHandler(filters.Text(), buttons_text))
     # <ws>
     #   section_number <comma> <ws>

@@ -182,9 +182,14 @@ async def select_number(context, job, message):
 
 
 async def accept_count(update, context):
-    request = session.apply(int(update.message.text))
-
-    await run_request(update, context, request)
+    if session.request_builder is None:
+        return
+    try:
+        int(update.message.text)
+        request = session.apply(int(update.message.text))
+        await run_request(update, context, request)
+    except ValueError:
+        await send_message(update, context, 'Возникла ошибка: Некорректное количество. Введите число', None)
 
 
 async def buttons_text(update, context):
