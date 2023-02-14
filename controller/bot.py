@@ -1,5 +1,9 @@
+import os
 import re
+import traceback
+
 import ResourceBundle
+from googletrans import Translator
 from typing import List
 
 # noinspection PyPackageRequirements
@@ -28,12 +32,15 @@ class Session:
         self.jobs = job_service.get_all()
 
     def apply(self, *args):
-        if self.request_builder is None:
-            self.request_builder = Request.generate(*args)
-        else:
-            self.request_builder = self.request_builder(*args)
+        try:
+            if self.request_builder is None:
+                self.request_builder = Request.generate(*args)
+            else:
+                self.request_builder = self.request_builder(*args)
 
-        return self.request_builder
+            return self.request_builder
+        except TypeError:
+            raise RequestError('invalid-request-sequence')
 
     def move_left(self):
         self.pointer = max(self.pointer - LIST_SIZE, 0)
@@ -63,6 +70,7 @@ class Session:
 
 LIST_SIZE = 8
 session = Session()
+translator = Translator()
 
 user_service = UserService()
 job_service = JobService()
@@ -131,6 +139,39 @@ async def en(update, context):
     await send_message(update, context, session.message('to-en'), None)
 
 
+async def lang(update: Update, context):
+    def from_unicode(text):
+        return ''.join(list(text))
+
+    def to_unicode(text):
+        return ''.join(['\\u' + ('%04x' % ord(e)) for e in text])
+
+    try:
+        marker = update.message.text.split(' ')[1]
+    except IndexError:
+        raise RequestError('invalid-command-usage')
+
+    await send_message(update, context, session.message('new-lang').format(marker), None)
+
+    with open('./resources/MessageBundle.properties', 'a') as f:
+        glob = dict(ResourceBundle.get_bundle('./resources/MessageBundle'))
+
+        sentence = from_unicode(glob['to-en'])
+        translated = translator.translate(sentence, src='en', dest=marker)
+        f.write(f'to-{marker}=' + to_unicode(translated.text))
+
+    with open(f'./resources/MessageBundle_{marker}.properties', 'w') as f:
+        content = dict(ResourceBundle.get_bundle('./resources/MessageBundle', 'en'))
+
+        values = [translator.translate(sentence, src='en', dest=marker).text for sentence in content.values()]
+
+        for k, v in zip(content.keys(), values):
+            f.write(f'{k}=' + to_unicode(v) + '\n')
+
+    session.change_lang(marker)
+    await send_message(update, context, session.message(f'to-{marker}'), None)
+
+
 def show_job_list_navigation():
     button_list = [
         [InlineKeyboardButton(str(job.section_number), callback_data=job.id) for job in session.interval()],
@@ -182,29 +223,26 @@ async def select_number(context, job, message):
 
 
 async def accept_count(update, context):
-    if session.request_builder is None:
-        return
     try:
-        int(update.message.text)
-        request = session.apply(int(update.message.text))
+        count = int(update.message.text)
+
+        request = session.apply(count)
         await run_request(update, context, request)
     except ValueError:
-        await send_message(update, context, 'Возникла ошибка: Некорректное количество. Введите число', None)
+        raise RequestError('invalid-number-format')
 
 
 async def buttons_text(update, context):
-    if update.message.text == 'Создать новый отчет':
-        await make_report(update, context)
-    elif update.message.text == 'Импортировать текстом':
-        await export_text(update, context)
-    elif update.message.text == 'Импортировать в csv':
-        await export_csv(update, context)
-    elif update.message.text == 'EN':
-        await en(update, context)
-    elif update.message.text == 'RUS':
-        await ru(update, context)
-    # elif update.message.text == 'OTHER':
-    #     await en(update, context)
+    fun = {
+        'Создать новый отчет': make_report,
+        'Импортировать текстом': export_text,
+        'Импортировать в csv': export_csv,
+        'EN': en,
+        'RUS': ru,
+        'OTHER': lang,
+    }[update.message.text]
+
+    await fun(update, context)
 
 
 async def full_request(update: Update, context):
@@ -225,12 +263,34 @@ async def full_request(update: Update, context):
 
 
 async def run_request(update, context, request):
-    try:
-        process(request)
+    process(request)
 
-        await send_message(update, context, session.message('accepted'), None)
-    except RequestError as e:
-        await send_message(update, context,
-                           session.message('error') + ': ' + session.message(e.bundle_key), None)
+    await send_message(update, context, session.message('accepted'), None)
 
     session.reset()
+
+
+async def error_handler(update, context):
+    err = context.error
+
+    if err is RequestError:
+        await send_message(update, context,
+                           session.message('error') + ': ' + session.message(err.bundle_key), None)
+    else:
+        await send_message(update, context, session.message('unknown-error-appeared'), None)
+
+        report_admin(err)
+
+    session.reset()
+
+
+def report_admin(err):
+    logs_path = '/bot/logs/'
+    os.makedirs(logs_path, exist_ok=True)
+
+    with open(logs_path + 'report.log', 'a') as f:
+        # noinspection PyBroadException
+        try:
+            raise err
+        except Exception:
+            f.write(traceback.format_exc())

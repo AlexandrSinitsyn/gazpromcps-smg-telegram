@@ -26,11 +26,11 @@ if __name__ == '__main__':
     TOKEN = os.environ.get('TOKEN')
     application = ApplicationBuilder().token(TOKEN).build()
 
-    languages = ['ru', 'en']
+    languages = ['ru', 'en', 'lang']
 
     for name in ['start', 'help', 'make_report', 'export_text', 'export_csv'] + languages:
         application.add_handler(CommandHandler(name, locals()[name]))
-    # Regex('^\s*[+-]?\d+\s*$')
+
     application.add_handler(CallbackQueryHandler(navigation))
     application.add_handler(MessageHandler(filters.Text(), accept_count))
     application.add_handler(MessageHandler(filters.Text(), buttons_text))
@@ -41,5 +41,7 @@ if __name__ == '__main__':
     #   measurement
     # <ws>
     application.add_handler(MessageHandler(Regex('^\s*([0-9]*[.])?[0-9]+,\s*[^,]+,\s*\d+,\s*\S+\s*$'), full_request))
+
+    application.add_error_handler(error_handler)
 
     application.run_polling()
