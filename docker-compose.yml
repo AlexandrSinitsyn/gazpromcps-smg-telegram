@@ -9,7 +9,7 @@ services:
         env_file:
             - database/.env
         ports:
-            - "127.0.0.1:5432:5432"
+            - "5433:5432"
         volumes:
             - ./database/:/db/
         networks:
@@ -17,8 +17,11 @@ services:
 
     tests:
         build:
-            dockerfile: ./test/Dockerfile
             context: .
+            dockerfile: ./test/Dockerfile
+        restart: no
+        environment:
+            POSTGRES_PORT: 5433
         env_file:
             - database/.env
         command: 'python3 -m unittest test/db_test.py'
@@ -29,12 +32,14 @@ services:
 
     bot:
         build:
-            dockerfile: ./controller/Dockerfile
             context: .
-        restart: always
+            dockerfile: Dockerfile
+        restart: on-failure
+        environment:
+            POSTGRES_PORT: 5433
         env_file:
             - database/.env
-            - controller/.env
+            - .env
         command: 'python3 main.py'
         networks:
             - internal
