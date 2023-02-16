@@ -1,5 +1,5 @@
 from repository.user_repository import *
-from dto.request import RequestError
+from exceptions.exceptions import RequestError
 
 
 class UserService:

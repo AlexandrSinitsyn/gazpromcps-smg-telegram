@@ -9,7 +9,7 @@ services:
         env_file:
             - database/.env
         ports:
-            - "5433:5432"
+            - "127.0.0.1:5433:5432"
         volumes:
             - ./database/:/db/
         networks:
@@ -19,7 +19,6 @@ services:
         build:
             context: .
             dockerfile: ./test/Dockerfile
-        restart: no
         environment:
             POSTGRES_PORT: 5433
         env_file:

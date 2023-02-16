@@ -8,6 +8,7 @@ from telegram.ext.filters import Regex
 
 from controller.bot import *
 import dto
+import exceptions
 import database
 from database.script import run
 import repository

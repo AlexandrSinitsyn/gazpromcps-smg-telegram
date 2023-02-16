@@ -1,6 +1,7 @@
 from dto.job import *
 from dto.response import Response
 from dto.user import User
+from exceptions.exceptions import RequestError
 from service.job_service import JobService
 from service.user_service import UserService
 
@@ -39,12 +40,3 @@ class Request:
             raise RequestError('job-no-found')
 
         return CompletedJob(-1, self.__job, self.__count, datetime.now())
-
-
-class RequestError(Exception):
-    bundle_key: str
-
-    def __init__(self, message):
-        super().__init__(message)
-
-        self.bundle_key = message

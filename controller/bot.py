@@ -13,7 +13,8 @@ from telegram.ext import ContextTypes
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 from dto.job import Job
-from dto.request import Request, RequestError
+from dto.request import Request
+from exceptions.exceptions import RequestError
 from dto.response import Response
 from dto.user import User, Superuser
 from service.excel_service import ExcelService
