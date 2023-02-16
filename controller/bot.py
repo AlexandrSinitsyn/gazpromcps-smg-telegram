@@ -1,19 +1,21 @@
 import os
 import re
 import traceback
+from datetime import datetime
 
 import ResourceBundle
 from googletrans import Translator
-from typing import List
+from typing import List, Union
 
 # noinspection PyPackageRequirements
 from telegram.ext import ContextTypes
 # noinspection PyPackageRequirements
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 from dto.job import Job
 from dto.request import Request, RequestError
 from dto.response import Response
+from dto.user import User, Superuser
 from service.excel_service import ExcelService
 from service.job_service import JobService
 from service.user_service import UserService
@@ -24,12 +26,22 @@ class Session:
     request_builder = None
     jobs = None
     locale = 'ru'
+    user = None  # type: Union[User, Superuser]
     __bundle = None  # type: ResourceBundle
 
     def start(self):
         self.reset()
 
         self.jobs = job_service.get_all()
+
+    def set_user(self, user_id: int):
+        self.user = user_service.get_by_id(user_id)
+
+    def check_access(self):
+        if self.user is Superuser or len(self.user.admin_in) != 0:
+            pass
+        else:
+            raise RequestError('not-allowed')
 
     def apply(self, *args):
         try:
@@ -99,9 +111,12 @@ async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE, messa
 
 
 async def start(update: Update, context):
+    telegram_user = update.message.from_user
+    user_service.register(User(telegram_user.id, telegram_user.full_name,
+                               [update.message.chat_id], [], datetime.now()))
+
     await send_message(update, context, session.message('start'), reply_markup=ReplyKeyboardMarkup(
-        [['Создать новый отчет'], ['Импортировать текстом'], ['Импортировать в csv'], ['EN', 'RUS', 'OTHER']],
-        one_time_keyboard=True))
+        [list(r.keys()) for r in buttons(session.user)], one_time_keyboard=True))
 
 
 # noinspection PyShadowingBuiltins
@@ -117,14 +132,18 @@ async def make_report(update: Update, context):
 
 
 async def export_csv(update: Update, context):
-    request = Request(user_service.get_by_id(update.message.from_user.id), Job.fake(), -1)
+    session.check_access()
+
+    request = Request(session.user, Job.fake(), -1)
 
     await context.bot.send_document(chat_id=update.effective_chat.id,
                                     document=open(answer(request, as_file=True).path(), 'rb'))
 
 
 async def export_text(update: Update, context):
-    request = Request(user_service.get_by_id(update.message.from_user.id), Job.fake(), -1)
+    session.check_access()
+
+    request = Request(session.user, Job.fake(), -1)
 
     await send_message(update, context, answer(request).content(), None)
 
@@ -170,6 +189,21 @@ async def lang(update: Update, context):
 
     session.change_lang(marker)
     await send_message(update, context, session.message(f'to-{marker}'), None)
+
+
+async def promote(update, context):
+    session.check_access()
+
+    try:
+        user_id = int(update.message.text.split(' ')[1])
+
+        user_service.make_admin(session.user, update.message.chat_id, user_service.get_by_id(user_id))
+
+        await send_message(update, context, 'ok', None)
+    except IndexError:
+        raise RequestError('invalid-command-usage')
+    except ValueError:
+        raise RequestError('invalid-number-format')
 
 
 def show_job_list_navigation():
@@ -231,16 +265,25 @@ async def accept_count(update, context):
     except ValueError:
         raise RequestError('invalid-number-format')
 
+headmaster = [{'Подрядчик': make_report}]
+imports = [
+    {'Импортировать текстом': export_text, 'Импортировать в csv': export_csv},
+    {'Promote': promote},
+]
+langs = [{'EN': en, 'RU': ru, 'OTHER': lang}]
 
-async def buttons_text(update, context):
-    fun = {
-        'Создать новый отчет': make_report,
-        'Импортировать текстом': export_text,
-        'Импортировать в csv': export_csv,
-        'EN': en,
-        'RUS': ru,
-        'OTHER': lang,
-    }[update.message.text]
+
+def buttons(user: Union[User, Superuser]) -> List[dict]:
+    if user is Superuser:
+        return headmaster + imports + langs
+    elif len(user.admin_in) != 0:
+        return imports + langs
+    else:
+        return headmaster + langs
+
+
+async def buttons_text(update: Update, context):
+    fun = {k: v for r in buttons(session.user) for k, v in r}[update.message.text]
 
     await fun(update, context)
 

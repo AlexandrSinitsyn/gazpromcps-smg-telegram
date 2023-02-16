@@ -4,12 +4,13 @@ from repository.database import *
 from dto.job import *
 
 
+# row := (id, job_id, count, timestamp)
+
 def to_job(row) -> Job:
     return Job(row[0], row[1], row[2], row[3], row[4])
 
 
 def to_cjob(row) -> CompletedJob:
-    # row := (id, job_id, count, timestamp)
     job = find_by_id(row[1])
 
     if job is None:

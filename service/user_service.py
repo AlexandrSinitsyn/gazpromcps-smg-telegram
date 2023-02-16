@@ -1,24 +1,35 @@
-from dto.user import *
+from repository.user_repository import *
+from dto.request import RequestError
 
 
 class UserService:
-    def __init__(self):
-        pass
+    @staticmethod
+    def get_all() -> List[User]:
+        return find_all()
 
-    def get_all(self) -> List[User]:
-        pass
+    @staticmethod
+    def get_by_id(user_id: int) -> User:
+        return find_by_id(user_id)
 
-    def get_by_id(self, user_id: int) -> User:
-        pass
+    @staticmethod
+    def get_by_chat(chat_id: int) -> List[User]:
+        return find_all_in_group(chat_id)
 
-    def get_by_chat(self, chat_id: int) -> List[User]:
-        pass
+    @staticmethod
+    def get_admin_by_chat(chat_id: int) -> List[User]:
+        return [u for u in find_all_admins() if chat_id in u.admin_in]
 
-    def get_admin_by_chat(self, chat_id: int) -> List[User]:
-        pass
+    @staticmethod
+    def get_superusers() -> List[Superuser]:
+        return find_all_superusers()
 
-    def get_superusers(self) -> List[Superuser]:
-        pass
+    @staticmethod
+    def register(user: User):
+        return save_user(user)
 
-    def add_allowed_chat(self, new_user: User):
-        pass
+    @staticmethod
+    def make_admin(sys: Union[User, Superuser], chat_id: int, user: User):
+        if sys is Superuser or len(sys.admin_in) != 0:
+            return make_admin(chat_id, user)
+        else:
+            raise RequestError('not-allowed')
