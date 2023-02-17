@@ -262,9 +262,9 @@ def show_job_list(session):
 
 
 async def navigation(update, context):
-    session = get_session(update.message.from_user.id)
-
     query = update.callback_query
+
+    session = get_session(query.from_user.id)
 
     if query.data == 'next' or query.data == 'previous':
         mark = session.pointer
@@ -288,7 +288,7 @@ async def navigation(update, context):
 
 
 async def select_number(update, context, job, message):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.callback_query.from_user.id)
 
     text = session.message('work-type') + ': ' +\
            str(job).replace(',', '\t') + ':\n' +\
@@ -369,8 +369,11 @@ async def run_request(update, context, request):
     session.reset()
 
 
-async def error_handler(update, context):
-    session = get_session(update.message.from_user.id)
+async def error_handler(update: Update, context):
+    if update.callback_query is None:
+        session = get_session(update.message.from_user.id)
+    else:
+        session = get_session(update.callback_query.from_user.id)
 
     err = context.error
 
