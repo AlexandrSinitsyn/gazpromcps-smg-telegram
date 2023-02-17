@@ -19,10 +19,13 @@ def find_all() -> List[User]:
         (lambda rows: [to_user(row) for row in rows])
 
 
-def find_by_id(user_id: int) -> Optional[User]:
+def find_by_id(user_id: int) -> Optional[Union[User, Superuser]]:
     def find(rows):
         for row in rows:
-            return to_user(row)
+            if row[2]:
+                return to_superuser(row)
+            else:
+                return to_user(row)
         return None
 
     return run_query('SELECT * FROM users where id=%(ui)s ;', ui=user_id)(find)
@@ -46,7 +49,7 @@ def find_all_admins() -> List[User]:
 def save_user(user: User):
     run_query(f'INSERT INTO users (id, name, superuser, groups, admin_in)'
               f"VALUES (%(ui)s, %(n)s, '0', %(gids)s, '{{}}') ;", ui=user.id, n=user.name,
-              gids=str(user.groups).replace('[', '\'{').replace(']', '}\''))(id)
+              gids=str(user.groups).replace('[', '{').replace(']', '}'))(id)
 
 
 def make_admin(chat_id: int, user: User):

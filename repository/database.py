@@ -15,5 +15,6 @@ def run_query(query: str, **kwargs):
     def inner(fn):
         with connection.cursor() as cursor:
             cursor.execute(query, kwargs)
+            connection.commit()
             return fn(cursor)
     return inner

@@ -29,11 +29,12 @@ if __name__ == '__main__':
 
     languages = ['ru', 'en', 'lang']
 
-    for name in ['start', 'help', 'make_report', 'export_text', 'export_csv', 'promote'] + languages:
+    for name in ['start', 'reload', 'help',
+                 'make_report', 'export_text', 'export_csv', 'promote'] + languages:
         application.add_handler(CommandHandler(name, locals()[name]))
 
     application.add_handler(CallbackQueryHandler(navigation))
-    application.add_handler(MessageHandler(filters.Text(), accept_count))
+    application.add_handler(MessageHandler(Regex('^\s*(-?[1-9]\d*|0)\s*$'), accept_count))
     application.add_handler(MessageHandler(filters.Text(), buttons_text))
     # <ws>
     #   section_number <comma> <ws>

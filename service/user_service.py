@@ -8,7 +8,7 @@ class UserService:
         return find_all()
 
     @staticmethod
-    def get_by_id(user_id: int) -> User:
+    def get_by_id(user_id: int) -> Optional[Union[User, Superuser]]:
         return find_by_id(user_id)
 
     @staticmethod
@@ -29,7 +29,7 @@ class UserService:
 
     @staticmethod
     def make_admin(sys: Union[User, Superuser], chat_id: int, user: User):
-        if sys is Superuser or len(sys.admin_in) != 0:
+        if isinstance(sys, Superuser) or len(sys.admin_in) != 0:
             return make_admin(chat_id, user)
         else:
             raise RequestError('not-allowed')
