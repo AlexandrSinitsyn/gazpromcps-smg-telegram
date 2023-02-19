@@ -41,6 +41,7 @@ services:
             - .env
         volumes:
             - ./controller/:/controller/
+            - ./resources/:/resources/
             - ./logs/:/bot/logs/
         command: 'python3 main.py'
         networks:
