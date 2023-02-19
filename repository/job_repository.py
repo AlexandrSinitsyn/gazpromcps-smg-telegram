@@ -4,17 +4,18 @@ from repository.database import *
 from dto.job import *
 
 
+# row := (id, master, title, timestamp)
 # row := (id, job_id, count, timestamp)
 
 def to_job(row) -> Job:
-    return Job(row[0], row[1], row[2], row[3], row[4])
+    return Job(row[0], row[1], row[2], row[3])
 
 
 def to_cjob(row) -> CompletedJob:
     job = find_by_id(row[1])
 
     if job is None:
-        job = Job(-1, -1.0, 'unknown or deleted', 'unknown or deleted', datetime.now())
+        job = Job(-1, 'unknown or deleted', 'unknown or deleted', datetime.now())
 
     return CompletedJob(row[0], job, row[2], row[3])
 
@@ -29,13 +30,8 @@ def find_all() -> List[Job]:
         (lambda rows: [to_job(row) for row in rows])
 
 
-def find_by_section(section_number: float) -> List[Job]:
-    return run_query(f'SELECT * FROM job where section_number=%(sn)s ;', sn=section_number) \
-        (lambda rows: [to_job(row) for row in rows])
-
-
-def find_by_measurement(measurement: str) -> List[Job]:
-    return run_query(f'SELECT * FROM job where measurement=%(m)s ;', m=measurement) \
+def find_by_master(master: str) -> List[Job]:
+    return run_query(f'SELECT * FROM job where master=%(m)s ;', m=master) \
         (lambda rows: [to_job(row) for row in rows])
 
 
@@ -48,20 +44,20 @@ def find_by_id(job_id: int) -> Optional[Job]:
     return run_query('SELECT * FROM job where id=%(ji)s ;', ji=job_id)(find)
 
 
-def find_by_params(section_number: float, title: str, measurement: str) -> Optional[Job]:
+def find_by_params(master: str, title: str) -> Optional[Job]:
     def find(rows):
         for row in rows:
             return to_job(row)
         return None
 
     return run_query(
-        f'SELECT * FROM job where section_number=%(sn)s AND title=%(t)s AND measurement=%(m)s ;',
-        sn=section_number, t=title, m=measurement)(find)
+        f'SELECT * FROM job where master=%(m)s AND title=%(t)s ;',
+        m=master, t=title)(find)
 
 
 def save_job(job: Job):
-    run_query(f'INSERT INTO job (section_number, title, measurement) VALUES (%(sn)s, %(t)s, %(m)s) ;',
-              sn=job.section_number, t=job.title, m=job.measurement)(id)
+    run_query(f'INSERT INTO job (master, title) VALUES (%(m)s, %(t)s) ;',
+              m=job.master, t=job.title)(id)
 
 
 def save_cjob(completed_job: CompletedJob):

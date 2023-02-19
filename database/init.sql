@@ -1,11 +1,9 @@
 create table job
 (
     id serial primary key ,
-    section_number float not null ,
+    master varchar(255) not null ,
     title varchar(255) not null ,
-    measurement varchar(255) not null ,
-    timestamp timestamp not null default now(),
-        check ( section_number > 0 )
+    timestamp timestamp not null default now()
 );
 
 create table completed
