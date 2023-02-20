@@ -99,6 +99,7 @@ class Session:
 LIST_SIZE = 4
 all_sessions = {}  # type: Dict[int, Session]
 translator = Translator()
+languages = {'en', 'ru'}
 
 user_service = UserService()
 job_service = JobService()
@@ -221,22 +222,26 @@ async def lang(update: Update, context):
     except IndexError:
         raise RequestError('invalid-command-usage')
 
-    await send_message(update, context, session.message('new-lang').format(marker), None)
+    global languages
+    if marker not in languages:
+        languages.add(marker)
 
-    with open('./resources/MessageBundle.properties', 'a') as f:
-        glob = dict(ResourceBundle.get_bundle('./resources/MessageBundle'))
+        await send_message(update, context, session.message('new-lang').format(marker), None)
 
-        sentence = from_unicode(glob['to-en'])
-        translated = translator.translate(sentence, src='en', dest=marker)
-        f.write(f'to-{marker}=' + to_unicode(translated.text))
+        with open('./resources/MessageBundle.properties', 'a') as f:
+            glob = dict(ResourceBundle.get_bundle('./resources/MessageBundle'))
 
-    with open(f'./resources/MessageBundle_{marker}.properties', 'w') as f:
-        content = dict(ResourceBundle.get_bundle('./resources/MessageBundle', 'en'))
+            sentence = from_unicode(glob['to-en'])
+            translated = translator.translate(sentence, src='en', dest=marker)
+            f.write(f'to-{marker}={to_unicode(translated.text)}\n')
 
-        values = [translator.translate(sentence, src='en', dest=marker).text for sentence in content.values()]
+        with open(f'./resources/MessageBundle_{marker}.properties', 'w') as f:
+            content = dict(ResourceBundle.get_bundle('./resources/MessageBundle', 'en'))
 
-        for k, v in zip(content.keys(), values):
-            f.write(f'{k}=' + to_unicode(v) + '\n')
+            values = [translator.translate(sentence, src='en', dest=marker).text for sentence in content.values()]
+
+            for k, v in zip(content.keys(), values):
+                f.write(f'{k}=' + to_unicode(v) + '\n')
 
     session.change_lang(marker)
     await send_message(update, context, session.message(f'to-{marker}'), None)
