@@ -39,6 +39,10 @@ services:
         env_file:
             - database/.env
             - .env
+        volumes:
+            - ./controller/:/controller/
+            - ./resources/:/resources/
+            - ./logs/:/bot/logs/
         command: 'python3 main.py'
         networks:
             - internal

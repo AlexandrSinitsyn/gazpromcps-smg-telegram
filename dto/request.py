@@ -18,10 +18,10 @@ class Request:
 
     @staticmethod
     def generate(user_service: UserService, user_id: int):
-        def generate_inner(job_service: JobService, section_number: float, title: str, measurement: str):
+        def generate_inner(job_service: JobService, master: str, title: str):
             def generate_iinner(count: int):
                 return Request(user_service.get_by_id(user_id),
-                               job_service.get_by_params(section_number, title, measurement),
+                               job_service.get_by_params(master, title),
                                count)
             return generate_iinner
         return generate_inner

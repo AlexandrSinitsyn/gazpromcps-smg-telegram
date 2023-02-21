@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import traceback
@@ -5,7 +6,7 @@ from datetime import datetime
 
 import ResourceBundle
 from googletrans import Translator
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Optional
 
 # noinspection PyPackageRequirements
 from telegram.ext import ContextTypes
@@ -25,15 +26,16 @@ from service.user_service import UserService
 class Session:
     pointer = 0
     request_builder = None
-    jobs = None
-    locale = 'ru'
+    jobs = None  # type: List[Job]
+    __master = None  # type: Optional[str]
+    __locale = 'ru'
     __user_id: int
     __bundle = None  # type: ResourceBundle
 
     def start(self):
         self.reset()
 
-        self.jobs = job_service.get_all()
+        self.jobs = list({job.master: job for job in job_service.get_all()}.values())
 
     def user(self) -> Union[User, Superuser]:
         return user_service.get_by_id(self.__user_id)
@@ -47,6 +49,14 @@ class Session:
             pass
         else:
             raise RequestError('not-allowed')
+
+    def master(self):
+        return self.__master
+
+    def set_master_by_job(self, job_id: int):
+        self.__master = job_service.get_by_id(job_id).master
+        self.jobs = job_service.get_by_master(self.__master)
+        self.pointer = 0
 
     def apply(self, *args):
         try:
@@ -70,24 +80,26 @@ class Session:
         return self.jobs[self.pointer: min(self.pointer + LIST_SIZE, len(self.jobs))]
 
     def change_lang(self, lang: str):
-        self.locale = lang
+        self.__locale = lang
 
-        self.__bundle = ResourceBundle.get_bundle('./resources/MessageBundle', self.locale)
+        self.__bundle = ResourceBundle.get_bundle('./resources/MessageBundle', self.__locale)
 
     def message(self, key: str) -> str:
         if self.__bundle is None:
-            self.__bundle = ResourceBundle.get_bundle('./resources/MessageBundle', self.locale)
+            self.__bundle = ResourceBundle.get_bundle('./resources/MessageBundle', self.__locale)
 
         return self.__bundle.get(key)
 
     def reset(self):
         self.pointer = 0
         self.request_builder = None
+        self.__master = None
 
 
-LIST_SIZE = 8
+LIST_SIZE = 4
 all_sessions = {}  # type: Dict[int, Session]
 translator = Translator()
+languages = {'en', 'ru'}
 
 user_service = UserService()
 job_service = JobService()
@@ -156,7 +168,9 @@ async def make_report(update: Update, context):
 
     session.start()
 
-    await update.message.reply_text(show_job_list(session), reply_markup=show_job_list_navigation(session))
+    job_list = {job.master: job.id for job in session.interval()}
+
+    await update.message.reply_text(show_job_list(session, job_list), reply_markup=show_job_list_navigation(job_list))
 
 
 async def export_csv(update: Update, context):
@@ -208,22 +222,26 @@ async def lang(update: Update, context):
     except IndexError:
         raise RequestError('invalid-command-usage')
 
-    await send_message(update, context, session.message('new-lang').format(marker), None)
+    global languages
+    if marker not in languages:
+        languages.add(marker)
 
-    with open('./resources/MessageBundle.properties', 'a') as f:
-        glob = dict(ResourceBundle.get_bundle('./resources/MessageBundle'))
+        await send_message(update, context, session.message('new-lang').format(marker), None)
 
-        sentence = from_unicode(glob['to-en'])
-        translated = translator.translate(sentence, src='en', dest=marker)
-        f.write(f'to-{marker}=' + to_unicode(translated.text))
+        with open('./resources/MessageBundle.properties', 'a') as f:
+            glob = dict(ResourceBundle.get_bundle('./resources/MessageBundle'))
 
-    with open(f'./resources/MessageBundle_{marker}.properties', 'w') as f:
-        content = dict(ResourceBundle.get_bundle('./resources/MessageBundle', 'en'))
+            sentence = from_unicode(glob['to-en'])
+            translated = translator.translate(sentence, src='en', dest=marker)
+            f.write(f'to-{marker}={to_unicode(translated.text)}\n')
 
-        values = [translator.translate(sentence, src='en', dest=marker).text for sentence in content.values()]
+        with open(f'./resources/MessageBundle_{marker}.properties', 'w') as f:
+            content = dict(ResourceBundle.get_bundle('./resources/MessageBundle', 'en'))
 
-        for k, v in zip(content.keys(), values):
-            f.write(f'{k}=' + to_unicode(v) + '\n')
+            values = [translator.translate(sentence, src='en', dest=marker).text for sentence in content.values()]
+
+            for k, v in zip(content.keys(), values):
+                f.write(f'{k}=' + to_unicode(v) + '\n')
 
     session.change_lang(marker)
     await send_message(update, context, session.message(f'to-{marker}'), None)
@@ -246,9 +264,9 @@ async def promote(update, context):
         raise RequestError('invalid-number-format')
 
 
-def show_job_list_navigation(session):
+def show_job_list_navigation(job_list):
     button_list = [
-        [InlineKeyboardButton(str(job.section_number), callback_data=job.id) for job in session.interval()],
+        [InlineKeyboardButton(k, callback_data=v) for k, v in job_list.items()],
 
         [InlineKeyboardButton("←", callback_data='previous'), InlineKeyboardButton("→", callback_data='next')]
     ]
@@ -256,12 +274,50 @@ def show_job_list_navigation(session):
     return InlineKeyboardMarkup(button_list)
 
 
-def show_job_list(session):
-    return '\n'.join([session.message('in-type')] +
-                     [str(job).replace(',', '\t') for job in session.interval()])
+def show_job_list(session, job_list):
+    return '\n'.join([session.message('in-type')] + [job for job in job_list])
 
 
 async def navigation(update, context):
+    query = update.callback_query
+
+    session = get_session(query.from_user.id)
+
+    if session.master() is not None:
+        await navigation_title(update, context)
+        return
+
+    if query.data == 'next' or query.data == 'previous':
+        mark = session.pointer
+
+        if query.data == 'next':
+            session.move_right()
+        else:
+            session.move_left()
+
+        if mark == session.pointer:
+            return
+
+        job_list = {job.master: job.id for job in session.interval()}
+
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(job_list))
+    else:
+        session.apply(user_service, query.message.from_user.id)
+
+        session.set_master_by_job(query.data)
+
+        job_list = {job.title: job.id for job in job_service.get_by_master(session.master())}
+
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(job_list))
+
+
+async def navigation_title(update, context):
     query = update.callback_query
 
     session = get_session(query.from_user.id)
@@ -277,13 +333,13 @@ async def navigation(update, context):
         if mark == session.pointer:
             return
 
+        job_list = {job.title: job.id for job in job_service.get_by_master(session.master())}
+
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
-                                          text=show_job_list(session),
-                                          reply_markup=show_job_list_navigation(session))
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(job_list))
     else:
-        session.apply(user_service, query.message.from_user.id)
-
         await select_number(update, context, job_service.get_by_id(int(query.data)), query.message)
 
 
@@ -298,7 +354,7 @@ async def select_number(update, context, job, message):
                                       message_id=message.message_id,
                                       text=text)
 
-    session.apply(job_service, job.section_number, job.title, job.measurement)
+    session.apply(job_service, job.master, job.title)
 
 
 async def accept_count(update, context):
@@ -387,14 +443,21 @@ async def error_handler(update: Update, context):
 
     session.reset()
 
+logs_path = '/bot/logs/'
+os.makedirs(logs_path, exist_ok=True)
+
 
 def report_admin(err):
-    logs_path = '/bot/logs/'
-    os.makedirs(logs_path, exist_ok=True)
-
     with open(logs_path + 'report.log', 'a') as f:
         # noinspection PyBroadException
         try:
             raise err
         except Exception:
             f.write(traceback.format_exc())
+
+
+def log(message: str, info: bool = True):
+    logging.info(message)
+
+    with open(logs_path + 'log.log', 'a') as f:
+        f.write(f'{"INFO" if info else " ERR"} - {message}\n')

@@ -17,16 +17,16 @@ class JobServiceTestCase(unittest.TestCase):
         self.assertEqual(self.job_service.get_by_id(2), None)
 
     def test_presence(self):
-        test_job = Job(1, 1.1, 'test title', 'test measurement', datetime.now())
+        test_job = Job(1, 'test master', 'test title', datetime.now())
         self.excel_service.import_data([test_job])
 
-        found = self.job_service.get_by_params(1.1, 'test title', 'test measurement')
+        found = self.job_service.get_by_params('test master', 'test title')
         self.assertEqual(found.title, 'test title')
 
         self.excel_service.delete_all()
 
     def test_found_list(self):
-        test_jobs = [Job(i, float(i), str(i), str(i), datetime.now()) for i in range(1, 10)]
+        test_jobs = [Job(i, str(i), str(i), datetime.now()) for i in range(1, 10)]
         self.excel_service.import_data(test_jobs)
 
         found = self.job_service.get_all()
@@ -35,7 +35,7 @@ class JobServiceTestCase(unittest.TestCase):
         print(found)
 
         for j in found:
-            self.assertEqual(str(int(j.section_number)), str(j.title))
+            self.assertEqual(str(j.master), str(j.title))
 
         self.excel_service.delete_all()
 
@@ -45,7 +45,7 @@ class ExcelServiceTestCase(unittest.TestCase):
     excel_service = ExcelService()
 
     def test_import(self):
-        test_jobs = [Job(i, float(i), str(i), str(i), datetime.now()) for i in range(1, 10)]
+        test_jobs = [Job(i, str(i), str(i), datetime.now()) for i in range(1, 10)]
 
         self.excel_service.import_data(test_jobs)
 
@@ -59,7 +59,7 @@ class ExcelServiceTestCase(unittest.TestCase):
         self.excel_service.delete_all()
 
     def test_export(self):
-        test_jobs = [Job(i, float(i), str(i), str(i), datetime.now()) for i in range(1, 10)]
+        test_jobs = [Job(i, str(i), str(i), datetime.now()) for i in range(1, 10)]
 
         self.excel_service.import_data(test_jobs)
 
@@ -67,7 +67,7 @@ class ExcelServiceTestCase(unittest.TestCase):
         for i in range(10):
             idx = test_jobs[random.randint(0, len(test_jobs) - 1)]
 
-            job = self.job_service.get_by_params(idx.section_number, idx.title, idx.measurement)
+            job = self.job_service.get_by_params(idx.master, idx.title)
 
             completed.append(CompletedJob(i, job, random.randint(1, 100), datetime.now()))
 
