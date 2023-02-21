@@ -5,6 +5,7 @@ import traceback
 from datetime import datetime
 
 import ResourceBundle
+# noinspection PyPackageRequirements
 from googletrans import Translator
 from typing import List, Union, Dict, Optional
 
@@ -317,7 +318,8 @@ async def navigation(update, context):
 
         session.set_master_by_job(query.data)
 
-        job_list = {job.title: job.id for job in job_service.get_by_master(session.master())}
+        job_list = {f'{job.title} ({job.measurement})': job.id
+                    for job in job_service.get_by_master(session.master())}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
@@ -341,7 +343,8 @@ async def navigation_title(update, context):
         if mark == session.pointer:
             return
 
-        job_list = {job.title: job.id for job in job_service.get_by_master(session.master())}
+        job_list = {f'{job.title} ({job.measurement})': job.id
+                    for job in job_service.get_by_master(session.master())}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
@@ -354,7 +357,7 @@ async def navigation_title(update, context):
 async def select_number(update, context, job, message):
     session = get_session(update.callback_query.from_user.id)
 
-    text = session.message('work-type') + ': ' +\
+    text = session.message('work-type') + ':\n' +\
            str(job).replace(',', '\t') + ':\n' +\
            session.message('in-count') + ':'
 

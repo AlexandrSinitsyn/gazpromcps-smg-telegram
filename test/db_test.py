@@ -17,7 +17,7 @@ class JobServiceTestCase(unittest.TestCase):
         self.assertEqual(self.job_service.get_by_id(2), None)
 
     def test_presence(self):
-        test_job = Job(1, 'test master', 'test title', datetime.now())
+        test_job = Job(1, 'test master', 'test title', 'test measurement', datetime.now())
         self.excel_service.import_data([test_job])
 
         found = self.job_service.get_by_params('test master', 'test title')
@@ -26,7 +26,7 @@ class JobServiceTestCase(unittest.TestCase):
         self.excel_service.delete_all()
 
     def test_found_list(self):
-        test_jobs = [Job(i, str(i), str(i), datetime.now()) for i in range(1, 10)]
+        test_jobs = [Job(i, str(i), str(i), str(i), datetime.now()) for i in range(1, 10)]
         self.excel_service.import_data(test_jobs)
 
         found = self.job_service.get_all()
@@ -45,7 +45,7 @@ class ExcelServiceTestCase(unittest.TestCase):
     excel_service = ExcelService()
 
     def test_import(self):
-        test_jobs = [Job(i, str(i), str(i), datetime.now()) for i in range(1, 10)]
+        test_jobs = [Job(i, str(i), str(i), str(i), datetime.now()) for i in range(1, 10)]
 
         self.excel_service.import_data(test_jobs)
 
@@ -59,7 +59,7 @@ class ExcelServiceTestCase(unittest.TestCase):
         self.excel_service.delete_all()
 
     def test_export(self):
-        test_jobs = [Job(i, str(i), str(i), datetime.now()) for i in range(1, 10)]
+        test_jobs = [Job(i, str(i), str(i), str(i), datetime.now()) for i in range(1, 10)]
 
         self.excel_service.import_data(test_jobs)
 
@@ -82,7 +82,7 @@ class ExcelServiceTestCase(unittest.TestCase):
         print(actual_csv)
 
         for cj in completed:
-            self.assertTrue(actual_csv.__contains__(str(cj.job) + f',{cj.count}'))
+            self.assertTrue(actual_csv.__contains__(f'{cj.job},"{cj.count}"'))
 
         self.excel_service.delete_all()
 

@@ -4,18 +4,18 @@ from repository.database import *
 from dto.job import *
 
 
-# row := (id, master, title, timestamp)
+# row := (id, master, measurement, title, timestamp)
 # row := (id, job_id, count, timestamp)
 
 def to_job(row) -> Job:
-    return Job(row[0], row[1], row[2], row[3])
+    return Job(row[0], row[1], row[2], row[3], row[4])
 
 
 def to_cjob(row) -> CompletedJob:
     job = find_by_id(row[1])
 
     if job is None:
-        job = Job(-1, 'unknown or deleted', 'unknown or deleted', datetime.now())
+        job = Job(-1, 'unknown or deleted', 'unknown or deleted', 'unknown or deleted', datetime.now())
 
     return CompletedJob(row[0], job, row[2], row[3])
 
@@ -56,8 +56,8 @@ def find_by_params(master: str, title: str) -> Optional[Job]:
 
 
 def save_job(job: Job):
-    run_query(f'INSERT INTO job (master, title) VALUES (%(m)s, %(t)s) ;',
-              m=job.master, t=job.title)(id)
+    run_query(f'INSERT INTO job (master, title, measurement) VALUES (%(m)s, %(t)s, %(me)s) ;',
+              m=job.master, t=job.title, me=job.measurement)(id)
 
 
 def save_cjob(completed_job: CompletedJob):

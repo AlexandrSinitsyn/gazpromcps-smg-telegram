@@ -3,6 +3,7 @@ create table job
     id serial primary key ,
     master varchar(255) not null ,
     title varchar(255) not null ,
+    measurement varchar(255) not null ,
     timestamp timestamp not null default now()
 );
 

@@ -7,18 +7,19 @@ class Job:
     id: int
     master: str
     title: str
+    measurement: str
     timestamp: datetime
 
     @staticmethod
     def fake():
-        return Job(-1, 'unknown', 'unknown', datetime.now())
+        return Job(-1, 'unknown', 'unknown', 'unknown', datetime.now())
 
     @staticmethod
     def csv_title() -> str:
-        return '"Подрядчик","Тип работ"'
+        return '"Подрядчик","Тип работ","Единицы измерения"'
 
     def __str__(self):
-        return f'"{self.master}","{self.title}"'
+        return f'"{self.master}","{self.title}","{self.measurement}"'
 
 
 @dataclass

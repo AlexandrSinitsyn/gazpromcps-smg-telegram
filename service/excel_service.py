@@ -23,7 +23,7 @@ class ExcelService:
             r = csv.reader(f, delimiter=',')
 
             for row in r:
-                data.append(Job(int(row[0]), float(row[1]), row[2], row[3],
+                data.append(Job(int(row[0]), row[1], row[2], row[3],
                                 datetime.fromisoformat(row[4])))
 
         ExcelService.import_data(data)
