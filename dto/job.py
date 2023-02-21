@@ -15,10 +15,10 @@ class Job:
 
     @staticmethod
     def csv_title() -> str:
-        return 'master,title'
+        return '"Подрядчик","Тип работ"'
 
     def __str__(self):
-        return f'{self.master},{self.title}'
+        return f'"{self.master}","{self.title}"'
 
 
 @dataclass
@@ -30,7 +30,7 @@ class CompletedJob:
 
     @staticmethod
     def csv_title() -> str:
-        return Job.csv_title() + ',count,timestamp'
+        return Job.csv_title() + ',"Количество","Время отчета"'
 
     def __str__(self):
-        return str(self.job) + f',{self.count},{self.timestamp}'
+        return str(self.job) + f',"{self.count}","{datetime.strftime(self.timestamp,"%d-%m-%Y (%H:%M)")}"'

@@ -127,9 +127,13 @@ def answer(request: Request, as_file: bool = False, store: bool = False) -> Resp
         return request.response(content=csv)
 
 
-async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str, reply_markup):
+async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str,
+                       session: Optional[Session]):
+
     await context.bot.send_message(chat_id=update.effective_chat.id, text=message,
-                                   reply_markup=reply_markup)
+                                   reply_markup=None if session is None else
+                                   ReplyKeyboardMarkup([list(r.keys()) for r in buttons(session.user())],
+                                                       one_time_keyboard=True))
 
 
 async def start(update: Update, context):
@@ -144,8 +148,7 @@ async def start(update: Update, context):
 
     session.set_user(telegram_user.id)
 
-    await send_message(update, context, session.message('start'), reply_markup=ReplyKeyboardMarkup(
-        [list(r.keys()) for r in buttons(session.user())], one_time_keyboard=True))
+    await send_message(update, context, session.message('start'), session)
 
 
 # noinspection PyShadowingBuiltins
@@ -153,14 +156,13 @@ async def help(update: Update, context):
     session = get_session(update.message.from_user.id)
 
     await send_message(update, context,
-                       session.message('description') + '\n\n' + session.message('help'), None)
+                       session.message('description') + '\n\n' + session.message('help'), session)
 
 
 async def reload(update, context):
     session = get_session(update.message.from_user.id)
 
-    await send_message(update, context, 'ok', reply_markup=ReplyKeyboardMarkup(
-        [list(r.keys()) for r in buttons(session.user())], one_time_keyboard=True))
+    await send_message(update, context, 'ok', session)
 
 
 async def make_report(update: Update, context):
@@ -191,21 +193,21 @@ async def export_text(update: Update, context):
 
     request = Request(session.user(), Job.fake(), -1)
 
-    await send_message(update, context, answer(request).content(), None)
+    await send_message(update, context, answer(request).content(), session)
 
 
 async def ru(update, context):
     session = get_session(update.message.from_user.id)
 
     session.change_lang('ru')
-    await send_message(update, context, session.message('to-ru'), None)
+    await send_message(update, context, session.message('to-ru'), session)
 
 
 async def en(update, context):
     session = get_session(update.message.from_user.id)
 
     session.change_lang('en')
-    await send_message(update, context, session.message('to-en'), None)
+    await send_message(update, context, session.message('to-en'), session)
 
 
 async def lang(update: Update, context):
@@ -244,7 +246,7 @@ async def lang(update: Update, context):
                 f.write(f'{k}=' + to_unicode(v) + '\n')
 
     session.change_lang(marker)
-    await send_message(update, context, session.message(f'to-{marker}'), None)
+    await send_message(update, context, session.message(f'to-{marker}'), session)
 
 
 async def promote(update, context):
@@ -257,11 +259,17 @@ async def promote(update, context):
 
         user_service.make_admin(session.user(), update.message.chat_id, user_service.get_by_id(user_id))
 
-        await send_message(update, context, 'ok', None)
+        await send_message(update, context, 'ok', session)
     except IndexError:
         raise RequestError('invalid-command-usage')
     except ValueError:
         raise RequestError('invalid-number-format')
+
+
+async def list_users(update, context):
+    await send_message(update, context,
+                       '\n'.join([f'{user.name} - {user.id}' for user in user_service.get_all()]),
+                       all_sessions[update.message.from_user.id])
 
 
 def show_job_list_navigation(job_list):
@@ -275,7 +283,7 @@ def show_job_list_navigation(job_list):
 
 
 def show_job_list(session, job_list):
-    return '\n'.join([session.message('in-type')] + [job for job in job_list])
+    return '\n'.join([session.message('in-type')] + [f'- {job}' for job in job_list])
 
 
 async def navigation(update, context):
@@ -369,20 +377,18 @@ async def accept_count(update, context):
         raise RequestError('invalid-number-format')
 
 headmaster = [{'Подрядчик': make_report}]
-imports = [
-    {'Импортировать текстом': export_text, 'Импортировать в csv': export_csv},
-    {'Promote': promote},
-]
-langs = [{'EN': en, 'RU': ru, 'OTHER': lang}]
+imports = [{'Импортировать текстом': export_text, 'Импортировать в csv': export_csv}]
+upgrade = [{'Пользователи': list_users}, {'Повысить': promote}]
+helping = [{'Помощь': help}]
 
 
 def buttons(user: Union[User, Superuser]) -> List[dict]:
     if isinstance(user, Superuser):
-        return headmaster + imports + langs
+        return headmaster + imports + upgrade + helping
     elif user.admin_in is not None and len(user.admin_in) != 0:
-        return imports + langs
+        return imports + helping
     else:
-        return headmaster + langs
+        return headmaster + helping
 
 
 async def buttons_text(update: Update, context):
@@ -420,7 +426,7 @@ async def run_request(update, context, request):
 
     process(request)
 
-    await send_message(update, context, session.message('accepted'), None)
+    await send_message(update, context, session.message('accepted'), session)
 
     session.reset()
 
@@ -435,9 +441,9 @@ async def error_handler(update: Update, context):
 
     if isinstance(err, RequestError):
         await send_message(update, context,
-                           session.message('error') + ': ' + session.message(err.bundle_key), None)
+                           session.message('error') + ': ' + session.message(err.bundle_key), session)
     else:
-        await send_message(update, context, session.message('unknown-error-appeared'), None)
+        await send_message(update, context, session.message('unknown-error-appeared'), session)
 
         report_admin(err)
 
