@@ -27,10 +27,10 @@ if __name__ == '__main__':
     TOKEN = os.environ.get('TOKEN')
     application = ApplicationBuilder().token(TOKEN).build()
 
-    languages = ['ru', 'en', 'lang']
+    languages = ['ru', 'en']  # , 'lang']
 
     for name in ['start', 'reload', 'help',
-                 'make_report', 'export_text', 'export_csv', 'promote', 'list_users'] + languages:
+                 'make_report', 'export_csv', 'export_xlsx', 'promote', 'list_users'] + languages:
         application.add_handler(CommandHandler(name, locals()[name]))
 
     application.add_handler(CallbackQueryHandler(navigation))

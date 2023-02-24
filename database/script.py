@@ -19,7 +19,7 @@ def run():
             return text[0].upper() + text[1:]
 
         for row in csv.reader(f, delimiter=','):
-            # row := "master","title","measurement"
-            data.append(Job(-1, row[0], capitalize_first(row[1]), row[2], datetime.now()))
+            # row := "title","master","measurement"
+            data.append(Job(-1, row[1], capitalize_first(row[0]), row[2], datetime.now()))
 
         excel_service.import_data(data)

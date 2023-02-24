@@ -1,4 +1,5 @@
 import csv
+import pyexcel
 
 from repository.job_repository import *
 
@@ -41,11 +42,20 @@ class ExcelService:
         return '\n'.join([CompletedJob.csv_title()] + [str(cj) for cj in collect_daily()])
 
     @staticmethod
-    def save() -> str:
+    def export_xlsx() -> List[List[str]]:
+        return [CompletedJob.csv_title().replace('"', '').split(',')] +\
+               [str(cj).replace('"', '').split(',') for cj in collect_daily()]
+
+    @staticmethod
+    def save(xlsx: bool = False) -> str:
         now = datetime.now()
 
-        file_name = path_to_done + 'save_' + datetime.strftime(now, '%Y%m%d_%H%M%S') + '.csv'
-        with open(file_name, 'w', newline='', encoding='utf-8') as f:
-            f.write(ExcelService.export_csv())
+        file_name = path_to_done + 'save_' + datetime.strftime(now, '%Y%m%d_%H%M%S') + ('.xlsx' if xlsx else '.csv')
+
+        if xlsx:
+            pyexcel.save_as(array=ExcelService.export_xlsx(), dest_file_name=file_name)
+        else:
+            with open(file_name, 'w', newline='', encoding='utf-8') as f:
+                f.write(ExcelService.export_csv())
 
         return file_name

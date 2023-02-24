@@ -107,19 +107,19 @@ job_service = JobService()
 excel_service = ExcelService()
 
 
-def get_session(user_id):
-    return all_sessions[user_id]
+def get_session(message):
+    return all_sessions[message.from_user.id]
 
 
 def process(request: Request):
     job_service.day_activity(request.get_job())
 
 
-def answer(request: Request, as_file: bool = False, store: bool = False) -> Response:
+def answer(request: Request, as_file: bool = False, xlsx: bool = False) -> Response:
     csv = excel_service.export_csv()
 
-    if as_file or store:
-        file_name = excel_service.save()
+    if as_file:
+        file_name = excel_service.save(xlsx)
 
     if as_file:
         # noinspection PyUnboundLocalVariable
@@ -130,7 +130,6 @@ def answer(request: Request, as_file: bool = False, store: bool = False) -> Resp
 
 async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str,
                        session: Optional[Session]):
-
     await context.bot.send_message(chat_id=update.effective_chat.id, text=message,
                                    reply_markup=None if session is None else
                                    ReplyKeyboardMarkup([list(r.keys()) for r in buttons(session.user())],
@@ -154,20 +153,20 @@ async def start(update: Update, context):
 
 # noinspection PyShadowingBuiltins
 async def help(update: Update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     await send_message(update, context,
                        session.message('description') + '\n\n' + session.message('help'), session)
 
 
 async def reload(update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     await send_message(update, context, 'ok', session)
 
 
 async def make_report(update: Update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     session.start()
 
@@ -177,18 +176,33 @@ async def make_report(update: Update, context):
 
 
 async def export_csv(update: Update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     session.check_access()
 
     request = Request(session.user(), Job.fake(), -1)
 
     await context.bot.send_document(chat_id=update.effective_chat.id,
-                                    document=open(answer(request, as_file=True).path(), 'rb'))
+                                    document=open(answer(request, as_file=True).path(), 'rb'),
+                                    reply_markup=ReplyKeyboardMarkup([list(r.keys()) for r in buttons(session.user())],
+                                                                     one_time_keyboard=True))
+
+
+async def export_xlsx(update: Update, context):
+    session = get_session(update.message)
+
+    session.check_access()
+
+    request = Request(session.user(), Job.fake(), -1)
+
+    await context.bot.send_document(chat_id=update.effective_chat.id,
+                                    document=open(answer(request, as_file=True, xlsx=True).path(), 'rb'),
+                                    reply_markup=ReplyKeyboardMarkup([list(r.keys()) for r in buttons(session.user())],
+                                                                     one_time_keyboard=True))
 
 
 async def export_text(update: Update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     session.check_access()
 
@@ -198,21 +212,21 @@ async def export_text(update: Update, context):
 
 
 async def ru(update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     session.change_lang('ru')
     await send_message(update, context, session.message('to-ru'), session)
 
 
 async def en(update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     session.change_lang('en')
     await send_message(update, context, session.message('to-en'), session)
 
 
 async def lang(update: Update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     def from_unicode(text):
         return ''.join(list(text))
@@ -251,7 +265,7 @@ async def lang(update: Update, context):
 
 
 async def promote(update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     session.check_access()
 
@@ -268,9 +282,11 @@ async def promote(update, context):
 
 
 async def list_users(update, context):
+    get_session(update.message).check_access()
+
     await send_message(update, context,
                        '\n'.join([f'{user.name} - {user.id}' for user in user_service.get_all()]),
-                       all_sessions[update.message.from_user.id])
+                       get_session(update.message))
 
 
 def show_job_list_navigation(job_list):
@@ -290,7 +306,7 @@ def show_job_list(session, job_list):
 async def navigation(update, context):
     query = update.callback_query
 
-    session = get_session(query.from_user.id)
+    session = get_session(query)
 
     if session.master() is not None:
         await navigation_title(update, context)
@@ -330,7 +346,7 @@ async def navigation(update, context):
 async def navigation_title(update, context):
     query = update.callback_query
 
-    session = get_session(query.from_user.id)
+    session = get_session(query)
 
     if query.data == 'next' or query.data == 'previous':
         mark = session.pointer
@@ -355,7 +371,7 @@ async def navigation_title(update, context):
 
 
 async def select_number(update, context, job, message):
-    session = get_session(update.callback_query.from_user.id)
+    session = get_session(update.callback_query)
 
     text = session.message('work-type') + ':\n' +\
            str(job).replace(',', '\t') + ':\n' +\
@@ -369,7 +385,7 @@ async def select_number(update, context, job, message):
 
 
 async def accept_count(update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     try:
         count = int(update.message.text)
@@ -380,7 +396,7 @@ async def accept_count(update, context):
         raise RequestError('invalid-number-format')
 
 headmaster = [{'Подрядчик': make_report}]
-imports = [{'Импортировать текстом': export_text, 'Импортировать в csv': export_csv}]
+imports = [{'Импортировать в csv': export_csv, 'Импортировать в xlsx': export_xlsx}]
 upgrade = [{'Пользователи': list_users}, {'Повысить': promote}]
 helping = [{'Помощь': help}]
 
@@ -395,7 +411,7 @@ def buttons(user: Union[User, Superuser]) -> List[dict]:
 
 
 async def buttons_text(update: Update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     try:
         fun = {k: v for r in buttons(session.user()) for k, v in r.items()}[update.message.text]
@@ -406,7 +422,7 @@ async def buttons_text(update: Update, context):
 
 
 async def full_request(update: Update, context):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     # 0 - full
     # 1 - section_number
@@ -425,7 +441,7 @@ async def full_request(update: Update, context):
 
 
 async def run_request(update, context, request):
-    session = get_session(update.message.from_user.id)
+    session = get_session(update.message)
 
     process(request)
 
@@ -436,9 +452,9 @@ async def run_request(update, context, request):
 
 async def error_handler(update: Update, context):
     if update.callback_query is None:
-        session = get_session(update.message.from_user.id)
+        session = get_session(update.message)
     else:
-        session = get_session(update.callback_query.from_user.id)
+        session = get_session(update.callback_query)
 
     err = context.error
 
