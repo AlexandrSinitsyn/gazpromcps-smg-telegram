@@ -75,7 +75,7 @@ class ExcelServiceTestCase(unittest.TestCase):
             self.job_service.day_activity(cj)
 
         expected_csv = '\n'.join([CompletedJob.csv_title()] + [str(cj) for cj in completed])
-        actual_csv = self.excel_service.export_csv()
+        actual_csv = self.excel_service.export_csv(datetime(1, 1, 1))
 
         self.assertEqual(len(expected_csv), len(actual_csv))
 

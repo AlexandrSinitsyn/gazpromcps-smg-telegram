@@ -38,24 +38,24 @@ class ExcelService:
         drop_table()
 
     @staticmethod
-    def export_csv() -> str:
-        return '\n'.join([CompletedJob.csv_title()] + [str(cj) for cj in collect_daily()])
+    def export_csv(start: datetime) -> str:
+        return '\n'.join([CompletedJob.csv_title()] + [str(cj) for cj in collect_daily(start)])
 
     @staticmethod
-    def export_xlsx() -> List[List[str]]:
+    def export_xlsx(start: datetime) -> List[List[str]]:
         return [CompletedJob.csv_title().replace('"', '').split(',')] +\
-               [str(cj).replace('"', '').split(',') for cj in collect_daily()]
+               [str(cj).replace('"', '').split(',') for cj in collect_daily(start)]
 
     @staticmethod
-    def save(xlsx: bool = False) -> str:
+    def save(start: datetime, xlsx: bool = False) -> str:
         now = datetime.now()
 
         file_name = path_to_done + 'save_' + datetime.strftime(now, '%Y%m%d_%H%M%S') + ('.xlsx' if xlsx else '.csv')
 
         if xlsx:
-            pyexcel.save_as(array=ExcelService.export_xlsx(), dest_file_name=file_name)
+            pyexcel.save_as(array=ExcelService.export_xlsx(start), dest_file_name=file_name)
         else:
             with open(file_name, 'w', newline='', encoding='utf-8') as f:
-                f.write(ExcelService.export_csv())
+                f.write(ExcelService.export_csv(start))
 
         return file_name

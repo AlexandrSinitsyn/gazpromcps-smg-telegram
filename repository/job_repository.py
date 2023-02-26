@@ -20,8 +20,8 @@ def to_cjob(row) -> CompletedJob:
     return CompletedJob(row[0], job, row[2], row[3])
 
 
-def collect_daily() -> List[CompletedJob]:
-    return run_query('SELECT * FROM completed ;') \
+def collect_daily(start: datetime) -> List[CompletedJob]:
+    return run_query('SELECT * FROM completed WHERE timestamp >= %(t)s ;', t=str(start)) \
         (lambda rows: [to_cjob(row) for row in rows])
 
 

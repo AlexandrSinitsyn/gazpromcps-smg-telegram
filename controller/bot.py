@@ -2,7 +2,7 @@ import logging
 import os
 import re
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import ResourceBundle
 # noinspection PyPackageRequirements
@@ -27,6 +27,7 @@ from service.user_service import UserService
 class Session:
     pointer = 0
     request_builder = None
+    answer_builder = None
     jobs = None  # type: List[Job]
     __master = None  # type: Optional[str]
     __locale = 'ru'
@@ -45,7 +46,7 @@ class Session:
         self.__user_id = user_id
 
     def check_access(self):
-        if isinstance(self.user(), Superuser) or\
+        if isinstance(self.user(), Superuser) or \
                 (self.user().admin_in is not None and len(self.user().admin_in) != 0):
             pass
         else:
@@ -94,6 +95,7 @@ class Session:
     def reset(self):
         self.pointer = 0
         self.request_builder = None
+        self.answer_builder = None
         self.__master = None
 
 
@@ -115,11 +117,11 @@ def process(request: Request):
     job_service.day_activity(request.get_job())
 
 
-def answer(request: Request, as_file: bool = False, xlsx: bool = False) -> Response:
-    csv = excel_service.export_csv()
+def answer(request: Request, start: datetime, as_file: bool = False, xlsx: bool = False) -> Response:
+    csv = excel_service.export_csv(start)
 
     if as_file:
-        file_name = excel_service.save(xlsx)
+        file_name = excel_service.save(start, xlsx)
 
     if as_file:
         # noinspection PyUnboundLocalVariable
@@ -175,40 +177,60 @@ async def make_report(update: Update, context):
     await update.message.reply_text(show_job_list(session, job_list), reply_markup=show_job_list_navigation(job_list))
 
 
-async def export_csv(update: Update, context):
+def period_list_navigation():
+    button_list = [
+        [InlineKeyboardButton(k, callback_data=v) for k, v in {
+            'День (1 день)': 'day',
+            'Неделя (7 дней)': 'week',
+            'Месяц (31 день)': 'month',
+        }.items()],
+        [InlineKeyboardButton(k, callback_data=v) for k, v in {
+            'Год (365 дней)': 'year',
+            'Все время': 'total',
+        }.items()],
+    ]
+
+    return InlineKeyboardMarkup(button_list)
+
+
+async def export(update: Update, context, fn):
     session = get_session(update.message)
 
     session.check_access()
 
     request = Request(session.user(), Job.fake(), -1)
 
-    await context.bot.send_document(chat_id=update.effective_chat.id,
-                                    document=open(answer(request, as_file=True).path(), 'rb'),
-                                    reply_markup=ReplyKeyboardMarkup([list(r.keys()) for r in buttons(session.user())],
-                                                                     one_time_keyboard=True))
+    session.answer_builder = fn(session, request)
+
+    await context.bot.send_message(chat_id=update.message.chat_id,
+                                   text=session.message('choose-period'),
+                                   reply_markup=period_list_navigation())
+
+
+async def export_csv(update, context):
+    await export(update, context, lambda session, request: \
+        lambda time: \
+            context.bot.send_document(chat_id=update.effective_chat.id,
+                                      document=open(answer(request, time, as_file=True).path(), 'rb'),
+                                      reply_markup=ReplyKeyboardMarkup(
+                                          [list(r.keys()) for r in buttons(session.user())],
+                                          one_time_keyboard=True)))
 
 
 async def export_xlsx(update: Update, context):
-    session = get_session(update.message)
-
-    session.check_access()
-
-    request = Request(session.user(), Job.fake(), -1)
-
-    await context.bot.send_document(chat_id=update.effective_chat.id,
-                                    document=open(answer(request, as_file=True, xlsx=True).path(), 'rb'),
-                                    reply_markup=ReplyKeyboardMarkup([list(r.keys()) for r in buttons(session.user())],
-                                                                     one_time_keyboard=True))
+    await export(update, context, lambda session, request: \
+        lambda time: \
+            context.bot.send_document(chat_id=update.effective_chat.id,
+                                      document=open(answer(request, time, as_file=True, xlsx=True).path(), 'rb'),
+                                      reply_markup=ReplyKeyboardMarkup(
+                                          [list(r.keys()) for r in buttons(session.user())],
+                                          one_time_keyboard=True)))
 
 
 async def export_text(update: Update, context):
-    session = get_session(update.message)
-
-    session.check_access()
-
-    request = Request(session.user(), Job.fake(), -1)
-
-    await send_message(update, context, answer(request).content(), session)
+    await export(update, context, lambda session, request: \
+        lambda time: \
+            send_message(update, context, answer(request, time).content(), session))
 
 
 async def ru(update, context):
@@ -330,17 +352,33 @@ async def navigation(update, context):
                                           text=show_job_list(session, job_list),
                                           reply_markup=show_job_list_navigation(job_list))
     else:
-        session.apply(user_service, query.message.from_user.id)
+        if session.answer_builder is None:
+            session.apply(user_service, query.message.from_user.id)
 
-        session.set_master_by_job(query.data)
+            session.set_master_by_job(query.data)
 
-        job_list = {f'{job.title} ({job.measurement})': job.id
-                    for job in job_service.get_by_master(session.master())}
+            job_list = {f'{job.title} ({job.measurement})': job.id for job in session.interval()}
 
-        await context.bot.editMessageText(chat_id=query.message.chat_id,
-                                          message_id=query.message.message_id,
-                                          text=show_job_list(session, job_list),
-                                          reply_markup=show_job_list_navigation(job_list))
+            await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                              message_id=query.message.message_id,
+                                              text=show_job_list(session, job_list),
+                                              reply_markup=show_job_list_navigation(job_list))
+        else:
+            def def_time(text: str):
+                now = datetime.now()
+
+                shift = {
+                    'day': timedelta(days=1),
+                    'week': timedelta(days=7),
+                    'month': timedelta(days=31),
+                    'year': timedelta(days=365),
+                    'total': timedelta(days=now.year * 365 + now.month * 30 + now.day - 2),
+                    # hack to not getting into BC
+                }[text]
+
+                return datetime(now.year, now.month, now.day) - shift
+
+            await session.answer_builder(def_time(query.data))
 
 
 async def navigation_title(update, context):
@@ -359,8 +397,7 @@ async def navigation_title(update, context):
         if mark == session.pointer:
             return
 
-        job_list = {f'{job.title} ({job.measurement})': job.id
-                    for job in job_service.get_by_master(session.master())}
+        job_list = {f'{job.title} ({job.measurement})': job.id for job in session.interval()}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
@@ -373,8 +410,8 @@ async def navigation_title(update, context):
 async def select_number(update, context, job, message):
     session = get_session(update.callback_query)
 
-    text = session.message('work-type') + ':\n' +\
-           str(job).replace(',', '\t') + ':\n' +\
+    text = session.message('work-type') + ':\n' + \
+           str(job).replace(',', '\t') + ':\n' + \
            session.message('in-count') + ':'
 
     await context.bot.editMessageText(chat_id=message.chat_id,
@@ -394,6 +431,7 @@ async def accept_count(update, context):
         await run_request(update, context, request)
     except ValueError:
         raise RequestError('invalid-number-format')
+
 
 headmaster = [{'Подрядчик': make_report}]
 imports = [{'Импортировать в csv': export_csv, 'Импортировать в xlsx': export_xlsx}]
@@ -467,6 +505,7 @@ async def error_handler(update: Update, context):
         report_admin(err)
 
     session.reset()
+
 
 logs_path = '/bot/logs/'
 os.makedirs(logs_path, exist_ok=True)
