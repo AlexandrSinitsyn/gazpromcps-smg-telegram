@@ -157,8 +157,13 @@ async def start(update: Update, context):
 async def help(update: Update, context):
     session = get_session(update.message)
 
+    commands = [f'/{cmd.__name__} - {session.message("description-" + cmd.__name__)}'
+                for r in buttons(session.user()) for cmd in list(r.values())]
+
     await send_message(update, context,
-                       session.message('description') + '\n\n' + session.message('help'), session)
+                       session.message('description') + '\n\n' +\
+                       '\n'.join(commands) + '\n\n' +\
+                       session.message('help'), session)
 
 
 async def reload(update, context):
@@ -436,14 +441,15 @@ async def accept_count(update, context):
 
 
 headmaster = [{'Выбор подрядной организации': make_report}]
-imports = [{'Импортировать в csv': export_csv, 'Импортировать в xlsx': export_xlsx}]
+imports = [{'Экспортировать в csv': export_csv, 'Экспортировать в xlsx': export_xlsx}]
 upgrade = [{'Пользователи': list_users}, {'Повысить': promote}]
+langs = [{'en': en, 'ru': ru}]  # , 'other': lang}]
 helping = [{'Помощь': help}]
 
 
 def buttons(user: Union[User, Superuser]) -> List[dict]:
     if isinstance(user, Superuser):
-        return headmaster + imports + upgrade + helping
+        return headmaster + imports + upgrade + langs + helping
     elif user.admin_in is not None and len(user.admin_in) != 0:
         return imports + helping
     else:
