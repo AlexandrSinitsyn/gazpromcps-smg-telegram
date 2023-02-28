@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 
-@dataclass
+@dataclass(frozen=True)
 class Job:
     id: int
     master: str
@@ -16,7 +16,7 @@ class Job:
 
     @staticmethod
     def csv_title() -> str:
-        return '"Подрядчик","Тип работ","Единицы измерения"'
+        return '"Подрядчик","Вип работ","Единицы измерения"'
 
     def __str__(self):
         return f'"{self.master}","{self.title}","{self.measurement}"'

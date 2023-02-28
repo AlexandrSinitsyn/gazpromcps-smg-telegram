@@ -38,13 +38,28 @@ class ExcelService:
         drop_table()
 
     @staticmethod
+    def summarise(start: datetime) -> List[str]:
+        total = collect_daily(start)
+
+        res = {}
+        for cj in total:
+            if cj.job not in res:
+                res[cj.job] = 0
+            res[cj.job] += cj.count
+
+        return [str(CompletedJob(-1, k, v, datetime.now()))for k, v in res.items()]
+
+    @staticmethod
     def export_csv(start: datetime) -> str:
-        return '\n'.join([CompletedJob.csv_title()] + [str(cj) for cj in collect_daily(start)])
+        return '\n'.join([CompletedJob.csv_title()] + [str(cj) for cj in collect_daily(start)] +\
+                         [] + ['Сумма по каждому виду работ'] + ExcelService.summarise(start))
 
     @staticmethod
     def export_xlsx(start: datetime) -> List[List[str]]:
-        return [CompletedJob.csv_title().replace('"', '').split(',')] +\
-               [str(cj).replace('"', '').split(',') for cj in collect_daily(start)]
+        return [[e.replace('"', '') for e in CompletedJob.csv_title().split('","')]] +\
+               [[e.replace('"', '') for e in str(cj).split('","')] for cj in collect_daily(start)] +\
+               [[]] + [['Сумма по каждому виду работ']] +\
+               [[e.replace('"', '') for e in str(cj).split('","')] for cj in ExcelService.summarise(start)]
 
     @staticmethod
     def save(start: datetime, xlsx: bool = False) -> str:

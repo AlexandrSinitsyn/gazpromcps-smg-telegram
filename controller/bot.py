@@ -322,7 +322,7 @@ def show_job_list_navigation(job_list):
 
 
 def show_job_list(session, job_list):
-    return '\n'.join([session.message('in-type')] + [f'- {job}' for job in job_list])
+    return '\n'.join([session.message('in-type')] + [f'{i + 1}) {job}' for i, job in enumerate(job_list)])
 
 
 async def navigation(update, context):
@@ -362,7 +362,8 @@ async def navigation(update, context):
             await context.bot.editMessageText(chat_id=query.message.chat_id,
                                               message_id=query.message.message_id,
                                               text=show_job_list(session, job_list),
-                                              reply_markup=show_job_list_navigation(job_list))
+                                              reply_markup=show_job_list_navigation(
+                                                  {str(i + 1): job.id for i, job in enumerate(session.interval())}))
         else:
             def def_time(text: str):
                 now = datetime.now()
@@ -402,7 +403,8 @@ async def navigation_title(update, context):
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
                                           text=show_job_list(session, job_list),
-                                          reply_markup=show_job_list_navigation(job_list))
+                                          reply_markup=show_job_list_navigation(
+                                              {str(i + 1): job.id for i, job in enumerate(session.interval())}))
     else:
         await select_number(update, context, job_service.get_by_id(int(query.data)), query.message)
 
@@ -411,7 +413,7 @@ async def select_number(update, context, job, message):
     session = get_session(update.callback_query)
 
     text = session.message('work-type') + ':\n' + \
-           str(job).replace(',', '\t') + ':\n' + \
+           f'{job.title}, {job.measurement}:\n' + \
            session.message('in-count') + ':'
 
     await context.bot.editMessageText(chat_id=message.chat_id,
@@ -433,7 +435,7 @@ async def accept_count(update, context):
         raise RequestError('invalid-number-format')
 
 
-headmaster = [{'Подрядчик': make_report}]
+headmaster = [{'Выбор подрядной организации': make_report}]
 imports = [{'Импортировать в csv': export_csv, 'Импортировать в xlsx': export_xlsx}]
 upgrade = [{'Пользователи': list_users}, {'Повысить': promote}]
 helping = [{'Помощь': help}]
