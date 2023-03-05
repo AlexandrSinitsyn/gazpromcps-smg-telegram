@@ -14,6 +14,7 @@ from telegram.ext import ContextTypes
 # noinspection PyPackageRequirements
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
+import database.script
 from dto.job import Job
 from dto.request import Request
 from exceptions.exceptions import RequestError
@@ -274,8 +275,10 @@ async def accept_month_update(update: Update, context: ContextTypes.DEFAULT_TYPE
     import service
     await file.download_to_drive(service.excel_service.path_to_job_list + file_name)
 
+    data = database.script.upload(service.excel_service.path_to_job_list + file_name)
+
     job_service.deactivate_all()
-    excel_service.import_csv(file_name)
+    excel_service.import_data(data)
 
     await send_message(update, context, 'ok', session)
 
@@ -347,7 +350,7 @@ async def promote(update, context):
     except IndexError:
         raise RequestError('invalid-command-usage')
     except ValueError:
-        raise RequestError('invalid-number-format')
+        raise RequestError('invalid-input-format')
 
 
 async def list_users(update, context):
@@ -360,7 +363,7 @@ async def list_users(update, context):
 
 def show_job_list_navigation(session, job_list):
     button_list = [
-        [InlineKeyboardButton(str(i + 1), callback_data=v) for i, v in enumerate(job_list.values())],
+        [InlineKeyboardButton(str(session.pointer + i + 1), callback_data=v) for i, v in enumerate(job_list.values())],
 
         [] if session.hit_bounds() is None
         else [InlineKeyboardButton("←", callback_data='previous'), InlineKeyboardButton("→", callback_data='next')]
@@ -375,7 +378,8 @@ def show_job_list_navigation(session, job_list):
 
 
 def show_job_list(session, job_list):
-    return '\n'.join([session.message('in-type')] + [f'{i + 1}) {job}' for i, job in enumerate(job_list)])
+    return '\n'.join([session.message('in-type')] + [f'{session.pointer + i + 1}) {job}'
+                                                     for i, job in enumerate(job_list)])
 
 
 async def navigation(update, context):
@@ -494,7 +498,7 @@ async def accept_count(update, context):
         request = session.apply(count)
         await run_request(update, context, request)
     except ValueError:
-        raise RequestError('invalid-number-format')
+        raise RequestError('invalid-input-format')
 
 
 headmaster = [{'Выбор подрядной организации': make_report}]

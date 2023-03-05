@@ -10,7 +10,6 @@ from controller.bot import *
 import dto
 import exceptions
 import database
-from database.script import run
 import repository
 import service
 
@@ -22,8 +21,6 @@ logging.basicConfig(
 
 
 if __name__ == '__main__':
-    run()
-
     TOKEN = os.environ.get('TOKEN')
     application = ApplicationBuilder().token(TOKEN).build()
 
