@@ -33,11 +33,14 @@ class Session:
     __locale = 'ru'
     __user_id: int
     __bundle = None  # type: ResourceBundle
+    only_active: bool
 
-    def start(self):
+    def start(self, only_active: bool = True):
+        self.only_active = only_active
         self.reset()
 
-        self.jobs = list({job.master: job for job in job_service.get_all()}.values())
+        self.jobs = list({job.master: job for job in
+                          (job_service.get_all_active() if self.only_active else job_service.get_all())}.values())
 
     def user(self) -> Union[User, Superuser]:
         return user_service.get_by_id(self.__user_id)
@@ -57,7 +60,8 @@ class Session:
 
     def set_master_by_job(self, job_id: int):
         self.__master = job_service.get_by_id(job_id).master
-        self.jobs = job_service.get_by_master(self.__master)
+        self.jobs = job_service.get_active_by_master(self.__master) if self.only_active \
+            else job_service.get_by_master(self.__master)
         self.pointer = 0
 
     def apply(self, *args):
@@ -75,8 +79,18 @@ class Session:
         self.pointer = max(self.pointer - LIST_SIZE, 0)
 
     def move_right(self):
-        if self.pointer + LIST_SIZE <= len(self.jobs):
+        if self.pointer + LIST_SIZE < len(self.jobs):
             self.pointer += LIST_SIZE
+
+    def hit_bounds(self):
+        if self.pointer <= 0:
+            if self.pointer + LIST_SIZE >= len(self.jobs):
+                return None
+            else:
+                return -1
+        elif self.pointer + LIST_SIZE >= len(self.jobs):
+            return 1
+        return 0
 
     def interval(self) -> List[Job]:
         return self.jobs[self.pointer: min(self.pointer + LIST_SIZE, len(self.jobs))]
@@ -99,7 +113,7 @@ class Session:
         self.__master = None
 
 
-LIST_SIZE = 4
+LIST_SIZE = 8
 all_sessions = {}  # type: Dict[int, Session]
 translator = Translator()
 languages = {'en', 'ru'}
@@ -179,7 +193,8 @@ async def make_report(update: Update, context):
 
     job_list = {job.master: job.id for job in session.interval()}
 
-    await update.message.reply_text(show_job_list(session, job_list), reply_markup=show_job_list_navigation(job_list))
+    await update.message.reply_text(show_job_list(session, job_list),
+                                    reply_markup=show_job_list_navigation(session, job_list))
 
 
 def period_list_navigation():
@@ -236,6 +251,33 @@ async def export_text(update: Update, context):
     await export(update, context, lambda session, request: \
         lambda time: \
             send_message(update, context, answer(request, time).content(), session))
+
+
+async def month_update(update: Update, context):
+    session = get_session(update.message)
+
+    session.check_access()
+
+    await send_message(update, context, session.message('provide-the-file'), session)
+
+
+async def accept_month_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    session = get_session(update.message)
+
+    session.check_access()
+
+    document = update.message.document
+    file_name = document.file_name
+
+    file = await context.bot.get_file(document)
+
+    import service
+    await file.download_to_drive(service.excel_service.path_to_job_list + file_name)
+
+    job_service.deactivate_all()
+    excel_service.import_csv(file_name)
+
+    await send_message(update, context, 'ok', session)
 
 
 async def ru(update, context):
@@ -316,11 +358,17 @@ async def list_users(update, context):
                        get_session(update.message))
 
 
-def show_job_list_navigation(job_list):
+def show_job_list_navigation(session, job_list):
     button_list = [
-        [InlineKeyboardButton(k, callback_data=v) for k, v in job_list.items()],
+        [InlineKeyboardButton(str(i + 1), callback_data=v) for i, v in enumerate(job_list.values())],
 
-        [InlineKeyboardButton("←", callback_data='previous'), InlineKeyboardButton("→", callback_data='next')]
+        [] if session.hit_bounds() is None
+        else [InlineKeyboardButton("←", callback_data='previous'), InlineKeyboardButton("→", callback_data='next')]
+        if session.hit_bounds() == 0
+        else [InlineKeyboardButton("←", callback_data='previous')] if session.hit_bounds() > 0
+        else [InlineKeyboardButton("→", callback_data='next')],
+
+        [InlineKeyboardButton("Все работы", callback_data='all')] if session.only_active else []
     ]
 
     return InlineKeyboardMarkup(button_list)
@@ -334,6 +382,17 @@ async def navigation(update, context):
     query = update.callback_query
 
     session = get_session(query)
+
+    if query.data == 'all':
+        session.start(False)
+
+        job_list = {job.master: job.id for job in session.interval()}
+
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(session, job_list))
+        return
 
     if session.master() is not None:
         await navigation_title(update, context)
@@ -355,7 +414,7 @@ async def navigation(update, context):
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
                                           text=show_job_list(session, job_list),
-                                          reply_markup=show_job_list_navigation(job_list))
+                                          reply_markup=show_job_list_navigation(session, job_list))
     else:
         if session.answer_builder is None:
             session.apply(user_service, query.message.from_user.id)
@@ -367,8 +426,7 @@ async def navigation(update, context):
             await context.bot.editMessageText(chat_id=query.message.chat_id,
                                               message_id=query.message.message_id,
                                               text=show_job_list(session, job_list),
-                                              reply_markup=show_job_list_navigation(
-                                                  {str(i + 1): job.id for i, job in enumerate(session.interval())}))
+                                              reply_markup=show_job_list_navigation(session, job_list))
         else:
             def def_time(text: str):
                 now = datetime.now()
@@ -408,8 +466,7 @@ async def navigation_title(update, context):
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
                                           text=show_job_list(session, job_list),
-                                          reply_markup=show_job_list_navigation(
-                                              {str(i + 1): job.id for i, job in enumerate(session.interval())}))
+                                          reply_markup=show_job_list_navigation(session, job_list))
     else:
         await select_number(update, context, job_service.get_by_id(int(query.data)), query.message)
 
@@ -432,7 +489,7 @@ async def accept_count(update, context):
     session = get_session(update.message)
 
     try:
-        count = int(update.message.text)
+        count = float(update.message.text.replace(',', '.'))
 
         request = session.apply(count)
         await run_request(update, context, request)
@@ -441,7 +498,8 @@ async def accept_count(update, context):
 
 
 headmaster = [{'Выбор подрядной организации': make_report}]
-imports = [{'Экспортировать в csv': export_csv, 'Экспортировать в xlsx': export_xlsx}]
+imports = [{'Экспортировать в csv': export_csv, 'Экспортировать в xlsx': export_xlsx},
+           {'Загрузить новый список работ': month_update}]
 upgrade = [{'Пользователи': list_users}, {'Повысить': promote}]
 langs = [{'en': en, 'ru': ru}]  # , 'other': lang}]
 helping = [{'Помощь': help}]

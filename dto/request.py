@@ -9,9 +9,9 @@ from service.user_service import UserService
 class Request:
     __sender: User
     __job: Job
-    __count: int
+    __count: float
 
-    def __init__(self, sender: User, job: Job, count: int):
+    def __init__(self, sender: User, job: Job, count: float):
         self.__sender = sender
         self.__job = job
         self.__count = count
@@ -19,7 +19,7 @@ class Request:
     @staticmethod
     def generate(user_service: UserService, user_id: int):
         def generate_inner(job_service: JobService, master: str, title: str):
-            def generate_iinner(count: int):
+            def generate_iinner(count: float):
                 return Request(user_service.get_by_id(user_id),
                                job_service.get_by_params(master, title),
                                count)
@@ -30,7 +30,7 @@ class Request:
         return Response(self.__sender, csv_path, content)
 
     def get_job(self) -> CompletedJob:
-        if self.__count < 1:
+        if self.__count <= 0:
             raise RequestError('invalid-count')
 
         if self.__count > 2_147_483_647:

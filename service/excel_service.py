@@ -14,18 +14,20 @@ class ExcelService:
     @staticmethod
     def import_data(data: List[Job]):
         for j in data:
-            save_job(j)
+            save_job(j, find_by_params(j.master, j.title) is None)
 
     @staticmethod
     def import_csv(file_name: str):
         data = []
 
+        def capitalize_first(text: str):
+            return text[0].upper() + text[1:]
+
         with open(path_to_job_list + file_name, 'r') as f:
             r = csv.reader(f, delimiter=',')
 
             for row in r:
-                data.append(Job(int(row[0]), row[1], row[2], row[3],
-                                datetime.fromisoformat(row[4])))
+                data.append(Job(-1, row[1], capitalize_first(row[0]), row[2], True, datetime.now()))
 
         ExcelService.import_data(data)
 

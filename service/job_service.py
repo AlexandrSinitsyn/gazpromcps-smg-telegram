@@ -7,8 +7,20 @@ class JobService:
         return find_all()
 
     @staticmethod
+    def get_all_active() -> List[Job]:
+        return find_active()
+
+    @staticmethod
+    def deactivate_all():
+        mark_all_inactive()
+
+    @staticmethod
     def get_by_master(master: str) -> List[Job]:
         return find_by_master(master)
+
+    @staticmethod
+    def get_active_by_master(master: str) -> List[Job]:
+        return find_active_by_master(master)
 
     @staticmethod
     def get_by_id(job_id: int) -> Optional[Job]:

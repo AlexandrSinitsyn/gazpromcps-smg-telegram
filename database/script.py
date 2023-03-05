@@ -20,6 +20,6 @@ def run():
 
         for row in csv.reader(f, delimiter=','):
             # row := "title","master","measurement"
-            data.append(Job(-1, row[1], capitalize_first(row[0]), row[2], datetime.now()))
+            data.append(Job(-1, row[1], capitalize_first(row[0]), row[2], True, datetime.now()))
 
         excel_service.import_data(data)

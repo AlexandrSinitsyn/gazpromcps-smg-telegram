@@ -4,6 +4,7 @@ create table job
     master varchar(255) not null ,
     title varchar(255) not null ,
     measurement varchar(255) not null ,
+    is_active boolean not null default true ,
     timestamp timestamp not null default now()
 );
 
@@ -12,7 +13,7 @@ create table completed
     id serial primary key ,
     job_id int not null ,
     constraint fk_job foreign key (job_id) references job ( id ) on delete cascade ,
-    count int not null ,
+    count float not null ,
     timestamp timestamp not null default now(),
         check ( count > 0 )
 );

@@ -28,14 +28,17 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
 
     languages = ['ru', 'en']  # , 'lang']
+    stuff = ['reload', 'promote', 'list_users']
 
-    for name in ['start', 'reload', 'help',
-                 'make_report', 'export_csv', 'export_xlsx', 'promote', 'list_users'] + languages:
+    for name in ['start',  'help',
+                 'make_report',
+                 'export_csv', 'export_xlsx', 'export_text', 'month_update'] + stuff + languages:
         application.add_handler(CommandHandler(name, locals()[name]))
 
     application.add_handler(CallbackQueryHandler(navigation))
-    application.add_handler(MessageHandler(Regex('^\s*(-?[1-9]\d*|0)\s*$'), accept_count))
+    application.add_handler(MessageHandler(Regex('^\s*(-?[1-9]\d*|0)([.,]\d*)?\s*$'), accept_count))
     application.add_handler(MessageHandler(filters.Text(), buttons_text))
+    application.add_handler(MessageHandler(filters.Document.FileExtension('csv'), accept_month_update))
     # <ws>
     #   section_number <comma> <ws>
     #   name <comma> <ws>

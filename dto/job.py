@@ -8,11 +8,12 @@ class Job:
     master: str
     title: str
     measurement: str
+    is_active: bool
     timestamp: datetime
 
     @staticmethod
     def fake():
-        return Job(-1, 'unknown', 'unknown', 'unknown', datetime.now())
+        return Job(-1, 'unknown', 'unknown', 'unknown', False, datetime.now())
 
     @staticmethod
     def csv_title() -> str:
@@ -26,7 +27,7 @@ class Job:
 class CompletedJob:
     id: int
     job: Job
-    count: int
+    count: float
     timestamp: datetime
 
     @staticmethod
