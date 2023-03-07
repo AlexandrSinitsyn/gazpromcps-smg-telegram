@@ -1,13 +1,7 @@
-import csv
 import logging
+import re
 
-import pyexcel
-from datetime import datetime
-
-from typing import List
-
-from dto.job import Job
-from service.excel_service import ExcelService
+from service.excel_service import *
 
 
 def run():
@@ -31,15 +25,15 @@ def run():
 
 
 def upload(file_name: str) -> List[Job]:
-    with open(file_name, 'r', encoding="utf8") as f:
-        # table = pyexcel.get_array(file_name=file_name)
+    table = read_xlsx(file_name)
 
-        current_master = ''
+    current_master = ''
 
-        data = []
+    data = []
 
+    for sheet in table:
         wait = True
-        for row in csv.reader(f, delimiter=','):
+        for row in sheet:
             if row[0] == '№ п/п':
                 wait = False
                 continue
@@ -52,10 +46,12 @@ def upload(file_name: str) -> List[Job]:
 
             logging.info(str(row[0:5]))
 
-            if row[2].strip():
-                current_master = row[2]
+            if row[2] is not None and row[2].strip():
+                m = re.search(r"[^(\n]*(\(([^)]*)\))?(\n(.*))?", row[2].strip())
+                current_master = next(item for item in [m.group(i) for i in range(4, -1, -1)] if item is not None)
+                current_master = re.sub(r"\s+", " ", current_master).strip()
 
-            if row[3].strip():
-                data.append(Job(-1, current_master, row[1], row[3], True, datetime.now()))
+            if row[3] is not None and row[3].strip():
+                data.append(Job(-1, current_master.strip(), row[1].strip(), row[3].strip(), True, datetime.now()))
 
-        return data
+    return data

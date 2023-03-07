@@ -1,6 +1,3 @@
-import logging
-import os
-
 # noinspection PyPackageRequirements
 from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler, CallbackQueryHandler, filters
 # noinspection PyPackageRequirements
@@ -35,7 +32,7 @@ if __name__ == '__main__':
     application.add_handler(CallbackQueryHandler(navigation))
     application.add_handler(MessageHandler(Regex('^\s*(-?[1-9]\d*|0)([.,]\d*)?\s*$'), accept_count))
     application.add_handler(MessageHandler(filters.Text(), buttons_text))
-    application.add_handler(MessageHandler(filters.Document.FileExtension('csv'), accept_month_update))
+    application.add_handler(MessageHandler(filters.Document.FileExtension('xlsx'), accept_month_update))
     # <ws>
     #   section_number <comma> <ws>
     #   name <comma> <ws>

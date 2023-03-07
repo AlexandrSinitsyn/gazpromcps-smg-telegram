@@ -1,5 +1,6 @@
 import csv
-import pyexcel
+import openpyxl
+from typing import List, Dict
 
 from repository.job_repository import *
 
@@ -8,6 +9,25 @@ path_to_job_list = '/bot/storage/jobs/'
 
 os.makedirs(path_to_done, exist_ok=True)
 os.makedirs(path_to_job_list, exist_ok=True)
+
+
+def read_xlsx(file_name: str) -> List[List[List[str]]]:
+    workbook = openpyxl.load_workbook(file_name)
+
+    return [[list(row) for row in workbook[sheet].values] for sheet in workbook.sheetnames]
+
+
+def write_xlsx(file_name: str, data: Dict[str, List[List[str]]]):
+    workbook = openpyxl.Workbook()
+
+    workbook.remove(workbook['Sheet'])
+
+    for name, rows in data.items():
+        sheet = workbook.create_sheet(name)
+        for row in rows:
+            sheet.append(row)
+
+    workbook.save(file_name)
 
 
 class ExcelService:
@@ -70,7 +90,8 @@ class ExcelService:
         file_name = path_to_done + 'save_' + datetime.strftime(now, '%Y%m%d_%H%M%S') + ('.xlsx' if xlsx else '.csv')
 
         if xlsx:
-            pyexcel.save_as(array=ExcelService.export_xlsx(start), dest_file_name=file_name)
+            write_xlsx(file_name,
+                       {f"Отчет от {datetime.strftime(now, '%Y-%m-%d (%H-%M)')}": ExcelService.export_xlsx(start)})
         else:
             with open(file_name, 'w', newline='', encoding='utf-8') as f:
                 f.write(ExcelService.export_csv(start))

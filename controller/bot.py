@@ -10,6 +10,7 @@ from googletrans import Translator
 from typing import List, Union, Dict, Optional
 
 # noinspection PyPackageRequirements
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 # noinspection PyPackageRequirements
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
@@ -165,7 +166,9 @@ async def start(update: Update, context):
 
     session.set_user(telegram_user.id)
 
-    await send_message(update, context, session.message('start'), session)
+    await send_message(update, context, session.message('start'), None)
+
+    await make_report(update, context)
 
 
 # noinspection PyShadowingBuiltins
@@ -266,6 +269,8 @@ async def accept_month_update(update: Update, context: ContextTypes.DEFAULT_TYPE
     session = get_session(update.message)
 
     session.check_access()
+
+    await send_message(update, context, 'Обрабатывается...', session)
 
     document = update.message.document
     file_name = document.file_name
@@ -511,7 +516,7 @@ helping = [{'Помощь': help}]
 
 def buttons(user: Union[User, Superuser]) -> List[dict]:
     if isinstance(user, Superuser):
-        return headmaster + imports + upgrade + langs + helping
+        return headmaster + imports + upgrade + helping
     elif user.admin_in is not None and len(user.admin_in) != 0:
         return imports + helping
     else:
@@ -553,9 +558,11 @@ async def run_request(update, context, request):
 
     process(request)
 
-    await send_message(update, context, session.message('accepted'), session)
+    await send_message(update, context, session.message('accepted'), None)
 
     session.reset()
+
+    await make_report(update, context)
 
 
 async def error_handler(update: Update, context):
@@ -569,6 +576,8 @@ async def error_handler(update: Update, context):
     if isinstance(err, RequestError):
         await send_message(update, context,
                            session.message('error') + ': ' + session.message(err.bundle_key), session)
+    if isinstance(err, BadRequest):
+        return
     else:
         await send_message(update, context, session.message('unknown-error-appeared'), session)
 
