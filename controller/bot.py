@@ -434,12 +434,13 @@ async def navigation(update, context):
 
     session = get_session(query)
 
-    if query.data == 'yes':
+    data = query.data
+    if data == 'yes':
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
                                           text='load-media')
         return
-    elif query.data == 'no':
+    elif data == 'no':
         session.reset()
 
         session.start()
@@ -452,7 +453,7 @@ async def navigation(update, context):
                                           reply_markup=show_job_list_navigation(session, job_list))
         return
 
-    if query.data == 'all':
+    if data == 'all':
         session.start(False)
 
         job_list = {job.master: job.id for job in session.interval()}
@@ -467,10 +468,10 @@ async def navigation(update, context):
         await navigation_title(update, context)
         return
 
-    if query.data == 'next' or query.data == 'previous':
+    if data == 'next' or data == 'previous':
         mark = session.pointer
 
-        if query.data == 'next':
+        if data == 'next':
             session.move_right()
         else:
             session.move_left()
@@ -488,9 +489,11 @@ async def navigation(update, context):
         if session.answer_builder is None:
             session.apply(user_service, query.message.from_user.id)
 
-            session.set_master_by_job(query.data)
+            if data.startswith('_'):
+                raise RequestError('invalid-request-sequence')
+            session.set_master_by_job(data)
 
-            job_list = {f'{job.title} ({job.measurement})': job.id for job in session.interval()}
+            job_list = {f'{job.title} ({job.measurement})': f'_{job.id}' for job in session.interval()}
 
             await context.bot.editMessageText(chat_id=query.message.chat_id,
                                               message_id=query.message.message_id,
@@ -511,7 +514,7 @@ async def navigation(update, context):
 
                 return datetime(now.year, now.month, now.day) - shift
 
-            await session.answer_builder(def_time(query.data))
+            await session.answer_builder(def_time(data))
 
 
 async def navigation_title(update, context):
@@ -519,10 +522,11 @@ async def navigation_title(update, context):
 
     session = get_session(query)
 
-    if query.data == 'next' or query.data == 'previous':
+    data = query.data
+    if data == 'next' or data == 'previous':
         mark = session.pointer
 
-        if query.data == 'next':
+        if data == 'next':
             session.move_right()
         else:
             session.move_left()
@@ -530,14 +534,16 @@ async def navigation_title(update, context):
         if mark == session.pointer:
             return
 
-        job_list = {f'{job.title} ({job.measurement})': job.id for job in session.interval()}
+        job_list = {f'{job.title} ({job.measurement})': f'_{job.id}' for job in session.interval()}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
                                           text=show_job_list(session, job_list),
                                           reply_markup=show_job_list_navigation(session, job_list))
     else:
-        await select_number(update, context, job_service.get_by_id(int(query.data)), query.message)
+        if not data.startswith('_'):
+            raise RequestError('invalid-request-sequence')
+        await select_number(update, context, job_service.get_by_id(int(data[1:])), query.message)
 
 
 async def select_number(update, context, job, message):

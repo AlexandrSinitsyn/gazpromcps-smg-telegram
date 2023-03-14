@@ -1,6 +1,6 @@
 create table job
 (
-    id serial primary key ,
+    id bigserial primary key ,
     master varchar(255) not null ,
     title varchar(255) not null ,
     measurement varchar(255) not null ,
@@ -10,8 +10,8 @@ create table job
 
 create table completed
 (
-    id serial primary key ,
-    job_id int not null ,
+    id bigserial primary key ,
+    job_id bigint not null ,
     constraint fk_job foreign key (job_id) references job ( id ) on delete cascade ,
     count float not null ,
     timestamp timestamp not null default now(),
@@ -20,10 +20,10 @@ create table completed
 
 create table users
 (
-    id serial primary key ,
+    id bigserial primary key ,
     name varchar(255) not null ,
     superuser boolean not null default false ,
-    groups int[] ,
-    admin_in int[] ,
+    groups bigint[] ,
+    admin_in bigint[] ,
     timestamp timestamp not null default now()
 );
