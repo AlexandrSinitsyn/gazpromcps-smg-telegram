@@ -41,8 +41,13 @@ services:
             - .env
         volumes:
             - ./controller/:/controller/
-            - ./resources/:/resources/
+            - ./database/:/database/
+            - ./dto/:/dto/
+            - ./exceptions/:/exceptions/
             - ./logs/:/bot/logs/
+            - ./repository/:/repository/
+            - ./resources/:/resources/
+            - ./service/:/service/
         command: 'python3 main.py'
         networks:
             - internal
