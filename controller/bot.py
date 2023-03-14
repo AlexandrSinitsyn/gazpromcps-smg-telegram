@@ -273,25 +273,34 @@ async def month_update(update: Update, context):
     await send_message(update, context, session.message('provide-the-file'), session)
 
 
-async def accept_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def accept_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = get_session(update.message)
 
-    document = update.message.document
-    extension = document.file_name[-3:]
-
-    variants = ['png', 'jpg', 'gif', 'tif']
-
-    if extension in variants:
-        file = await context.bot.get_file(document)
+    async def load_photo(file):
         lmi = '?' if session.last_message_id is None else str(session.last_message_id)
-        file_name = session.user().name + '_0_' + lmi + '.' + extension
+        file_name = '0_' + session.user().name + lmi + '.' + file.file_path.split('.')[-1]
         while file_name in os.listdir(service.media_service.path_to_media):
-            file_name = session.user().name + f'_{str(int(file_name.split("_")[1]) + 1)}_' + lmi + '.' + extension
+            file_name = f'{str(int(file_name.split("_")[0]) + 1)}_' +\
+                        session.user().name + lmi + '.' + file.file_path.split('.')[-1]
         await file.download_to_drive(service.media_service.path_to_media + file_name)
 
-        await send_message(update, context, 'ok', session)
+    document = update.message.document
+    if document is None:
+        for ph in update.message.photo:
+            await load_photo(await ph.get_file())
+        await send_message(update, context, 'ok', None)
+        await make_report(update, context)
     else:
-        await send_message(update, context, 'unsupported-file-extension', session)
+        extension = document.file_name[-3:]
+
+        variants = ['png', 'jpg', 'gif', 'tif']
+
+        if extension not in variants:
+            await send_message(update, context, 'unsupported-file-extension', session)
+        else:
+            await load_photo(await context.bot.get_file(document))
+            await send_message(update, context, 'ok', None)
+            await make_report(update, context)
 
 
 async def accept_xlsx_month_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
