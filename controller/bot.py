@@ -11,19 +11,22 @@ from typing import List, Union, Dict, Optional
 
 # noinspection PyPackageRequirements
 from telegram.error import BadRequest
+# noinspection PyPackageRequirements
 from telegram.ext import ContextTypes
 # noinspection PyPackageRequirements
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 import database.script
-from dto.job import Job
+from dto.job import Job, CompletedJob
 from dto.request import Request
 from exceptions.exceptions import RequestError
 from dto.response import Response
 from dto.user import User, Superuser
+import service
 from service.excel_service import ExcelService
 from service.job_service import JobService
 from service.user_service import UserService
+from service.media_service import MediaService
 
 
 class Session:
@@ -35,6 +38,7 @@ class Session:
     __locale = 'ru'
     __user_id: int
     __bundle = None  # type: ResourceBundle
+    last_message_id: int = None
     only_active: bool
 
     def start(self, only_active: bool = True):
@@ -123,14 +127,18 @@ languages = {'en', 'ru'}
 user_service = UserService()
 job_service = JobService()
 excel_service = ExcelService()
+media_service = MediaService()
+
+# noinspection PyRedeclaration
+all_sessions = {user.id: Session() for user in user_service.get_all()}
 
 
 def get_session(message):
     return all_sessions[message.from_user.id]
 
 
-def process(request: Request):
-    job_service.day_activity(request.get_job())
+def process(request: Request) -> int:
+    return job_service.day_activity(request.get_job())
 
 
 def answer(request: Request, start: datetime, as_file: bool = False, xlsx: bool = False) -> Response:
@@ -265,7 +273,28 @@ async def month_update(update: Update, context):
     await send_message(update, context, session.message('provide-the-file'), session)
 
 
-async def accept_month_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def accept_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    session = get_session(update.message)
+
+    document = update.message.document
+    extension = document.file_name[-3:]
+
+    variants = ['png', 'jpg', 'gif', 'tif']
+
+    if extension in variants:
+        file = await context.bot.get_file(document)
+        lmi = '?' if session.last_message_id is None else str(session.last_message_id)
+        file_name = session.user().name + '_0_' + lmi + '.' + extension
+        while file_name in os.listdir(service.media_service.path_to_media):
+            file_name = session.user().name + f'_{str(int(file_name.split("_")[1]) + 1)}_' + lmi + '.' + extension
+        await file.download_to_drive(service.media_service.path_to_media + file_name)
+
+        await send_message(update, context, 'ok', session)
+    else:
+        await send_message(update, context, 'unsupported-file-extension', session)
+
+
+async def accept_xlsx_month_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = get_session(update.message)
 
     session.check_access()
@@ -277,7 +306,6 @@ async def accept_month_update(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     file = await context.bot.get_file(document)
 
-    import service
     await file.download_to_drive(service.excel_service.path_to_job_list + file_name)
 
     data = database.script.upload(service.excel_service.path_to_job_list + file_name)
@@ -286,6 +314,20 @@ async def accept_month_update(update: Update, context: ContextTypes.DEFAULT_TYPE
     excel_service.import_data(data)
 
     await send_message(update, context, 'ok', session)
+
+
+async def get_media(update, context):
+    session = get_session(update.message)
+
+    session.check_access()
+
+    await context.bot.send_document(chat_id=update.effective_chat.id,
+                                    document=open(media_service.get_all(), 'rb'),
+                                    reply_markup=ReplyKeyboardMarkup(
+                                        [list(r.keys()) for r in buttons(session.user())],
+                                        one_time_keyboard=True))
+
+    media_service.delete_tmp()
 
 
 async def ru(update, context):
@@ -391,6 +433,24 @@ async def navigation(update, context):
     query = update.callback_query
 
     session = get_session(query)
+
+    if query.data == 'yes':
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text='load-media')
+        return
+    elif query.data == 'no':
+        session.reset()
+
+        session.start()
+
+        job_list = {job.master: job.id for job in session.interval()}
+
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(session, job_list))
+        return
 
     if query.data == 'all':
         session.start(False)
@@ -507,7 +567,8 @@ async def accept_count(update, context):
 
 
 headmaster = [{'Выбор подрядной организации': make_report}]
-imports = [{'Экспортировать в csv': export_csv, 'Экспортировать в xlsx': export_xlsx},
+imports = [{'Экспортировать в csv': export_csv, 'Экспортировать в xlsx': export_xlsx,
+            'Посмотреть загруженные фотографии': get_media},
            {'Загрузить новый список работ': month_update}]
 upgrade = [{'Пользователи': list_users}, {'Повысить': promote}]
 langs = [{'en': en, 'ru': ru}]  # , 'other': lang}]
@@ -556,13 +617,18 @@ async def full_request(update: Update, context):
 async def run_request(update, context, request):
     session = get_session(update.message)
 
-    process(request)
+    session.last_message_id = process(request)
 
     await send_message(update, context, session.message('accepted'), None)
 
-    session.reset()
+    await update.message.reply_text('decide-load-media',
+                                    reply_markup=InlineKeyboardMarkup(
+                                        [[InlineKeyboardButton(k, callback_data=v) for k, v in
+                                          {'Да': 'yes', 'Нет': 'no'}.items()]]))
 
-    await make_report(update, context)
+    # session.reset()
+    #
+    # await make_report(update, context)
 
 
 async def error_handler(update: Update, context):
@@ -576,7 +642,7 @@ async def error_handler(update: Update, context):
     if isinstance(err, RequestError):
         await send_message(update, context,
                            session.message('error') + ': ' + session.message(err.bundle_key), session)
-    if isinstance(err, BadRequest):
+    elif isinstance(err, BadRequest):
         return
     else:
         await send_message(update, context, session.message('unknown-error-appeared'), session)

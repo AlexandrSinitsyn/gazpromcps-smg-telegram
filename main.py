@@ -23,16 +23,16 @@ if __name__ == '__main__':
 
     languages = ['ru', 'en']  # , 'lang']
     stuff = ['reload', 'promote', 'list_users']
+    data_managing = ['export_csv', 'export_xlsx', 'export_text', 'get_media', 'month_update']
 
-    for name in ['start',  'help',
-                 'make_report',
-                 'export_csv', 'export_xlsx', 'export_text', 'month_update'] + stuff + languages:
+    for name in ['start',  'help', 'make_report'] + data_managing + stuff + languages:
         application.add_handler(CommandHandler(name, locals()[name]))
 
     application.add_handler(CallbackQueryHandler(navigation))
     application.add_handler(MessageHandler(Regex('^\s*(-?[1-9]\d*|0)([.,]\d*)?\s*$'), accept_count))
     application.add_handler(MessageHandler(filters.Text(), buttons_text))
-    application.add_handler(MessageHandler(filters.Document.FileExtension('xlsx'), accept_month_update))
+    application.add_handler(MessageHandler(filters.Document.FileExtension('xlsx'), accept_xlsx_month_update))
+    application.add_handler(MessageHandler(filters.Document.ALL, accept_document))
     # <ws>
     #   section_number <comma> <ws>
     #   name <comma> <ws>

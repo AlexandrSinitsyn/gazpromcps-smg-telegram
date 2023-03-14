@@ -76,9 +76,14 @@ def save_job(job: Job, new: bool):
                   m=job.master, t=job.title, me=job.measurement)(id)
 
 
-def save_cjob(completed_job: CompletedJob):
-    run_query(f'INSERT INTO completed (job_id, count) VALUES (%(ji)s, %(c)s) ;',
-              ji=completed_job.job.id, c=completed_job.count)(id)
+def save_cjob(completed_job: CompletedJob) -> int:
+    def collect(rows):
+        for row in rows:
+            return int(row[0])
+        raise ValueError(f'Expected an int id on returning, but got {str(rows)}')
+
+    return run_query(f'INSERT INTO completed (job_id, count) VALUES (%(ji)s, %(c)s) RETURNING id ;',
+                     ji=completed_job.job.id, c=completed_job.count)(collect)
 
 
 def mark_all_inactive():

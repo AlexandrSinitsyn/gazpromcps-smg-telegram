@@ -31,5 +31,5 @@ class JobService:
         return find_by_params(master, title)
 
     @staticmethod
-    def day_activity(completed_job: CompletedJob):
-        save_cjob(completed_job)
+    def day_activity(completed_job: CompletedJob) -> int:
+        return save_cjob(completed_job)
