@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import threading
 import traceback
 from datetime import datetime, timedelta
 
@@ -131,6 +132,8 @@ media_service = MediaService()
 
 # noinspection PyRedeclaration
 all_sessions = {user.id: Session() for user in user_service.get_all()}
+for i, s in all_sessions.items():
+    s.set_user(i)
 
 
 def get_session(message):
@@ -195,7 +198,7 @@ async def help(update: Update, context):
 async def reload(update, context):
     session = get_session(update.message)
 
-    await send_message(update, context, 'ok', session)
+    await send_message(update, context, session.message('accepted'), session)
 
 
 async def make_report(update: Update, context):
@@ -288,7 +291,7 @@ async def accept_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if document is None:
         for ph in update.message.photo:
             await load_photo(await ph.get_file())
-        await send_message(update, context, 'ok', None)
+        await send_message(update, context, session.message('accepted'), None)
         await make_report(update, context)
     else:
         extension = document.file_name[-3:]
@@ -296,10 +299,11 @@ async def accept_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         variants = ['png', 'jpg', 'gif', 'tif']
 
         if extension not in variants:
-            await send_message(update, context, 'unsupported-file-extension', session)
+            await send_message(update, context, session.message('unsupported-file-extension')
+                               .format(str(variants)), session)
         else:
             await load_photo(await context.bot.get_file(document))
-            await send_message(update, context, 'ok', None)
+            await send_message(update, context, session.message('accepted'), None)
             await make_report(update, context)
 
 
@@ -308,7 +312,7 @@ async def accept_xlsx_month_update(update: Update, context: ContextTypes.DEFAULT
 
     session.check_access()
 
-    await send_message(update, context, 'Обрабатывается...', session)
+    await send_message(update, context, session.message('processing'), session)
 
     document = update.message.document
     file_name = document.file_name
@@ -322,7 +326,7 @@ async def accept_xlsx_month_update(update: Update, context: ContextTypes.DEFAULT
     job_service.deactivate_all()
     excel_service.import_data(data)
 
-    await send_message(update, context, 'ok', session)
+    await send_message(update, context, session.message('accepted'), session)
 
 
 async def get_media(update, context):
@@ -402,7 +406,7 @@ async def promote(update, context):
 
         user_service.make_admin(session.user(), update.message.chat_id, user_service.get_by_id(user_id))
 
-        await send_message(update, context, 'ok', session)
+        await send_message(update, context, session.message('accepted'), session)
     except IndexError:
         raise RequestError('invalid-command-usage')
     except ValueError:
@@ -447,7 +451,7 @@ async def navigation(update, context):
     if data == 'yes':
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
-                                          text='load-media')
+                                          text=session.message('load-media'))
         return
     elif data == 'no':
         session.reset()
@@ -636,7 +640,7 @@ async def run_request(update, context, request):
 
     await send_message(update, context, session.message('accepted'), None)
 
-    await update.message.reply_text('decide-load-media',
+    await update.message.reply_text(session.message('decide-load-media'),
                                     reply_markup=InlineKeyboardMarkup(
                                         [[InlineKeyboardButton(k, callback_data=v) for k, v in
                                           {'Да': 'yes', 'Нет': 'no'}.items()]]))
