@@ -5,6 +5,7 @@ from datetime import datetime
 @dataclass(frozen=True)
 class Job:
     id: int
+    stage: str
     master: str
     title: str
     measurement: str
@@ -13,14 +14,14 @@ class Job:
 
     @staticmethod
     def fake():
-        return Job(-1, 'unknown', 'unknown', 'unknown', False, datetime.now())
+        return Job(-1, 'unknown', 'unknown', 'unknown', 'unknown', False, datetime.now())
 
     @staticmethod
     def csv_title() -> str:
-        return '"Подрядчик","Вип работ","Единицы измерения"'
+        return '"Этап","Подрядчик","Вип работ","Единицы измерения"'
 
     def __str__(self):
-        return f'"{self.master}","{self.title}","{self.measurement}"'
+        return f'"{self.stage}","{self.master}","{self.title}","{self.measurement}"'
 
 
 @dataclass

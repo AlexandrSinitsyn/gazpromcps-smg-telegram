@@ -18,11 +18,13 @@ class Request:
 
     @staticmethod
     def generate(user_service: UserService, user_id: int):
-        def generate_inner(job_service: JobService, master: str, title: str):
-            def generate_iinner(count: float):
-                return Request(user_service.get_by_id(user_id),
-                               job_service.get_by_params(master, title),
-                               count)
+        def generate_inner(job_service: JobService, stage: str):
+            def generate_iinner(master: str, title: str):
+                def generate_iiinner(count: float):
+                    return Request(user_service.get_by_id(user_id),
+                                   job_service.get_by_params(stage, master, title),
+                                   count)
+                return generate_iiinner
             return generate_iinner
         return generate_inner
 

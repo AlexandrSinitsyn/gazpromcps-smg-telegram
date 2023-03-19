@@ -4,11 +4,11 @@ from repository.database import *
 from dto.job import *
 
 
-# row := (id, master, title, measurement, is_active, timestamp)
+# row := (id, stage, master, title, measurement, is_active, timestamp)
 # row := (id, job_id, count, timestamp)
 
 def to_job(row) -> Job:
-    return Job(row[0], row[1], row[2], row[3], row[4], row[5])
+    return Job(row[0], row[1], row[2], row[3], row[4], row[5], row[6])
 
 
 def to_cjob(row) -> CompletedJob:
@@ -41,8 +41,23 @@ def find_by_master(master: str) -> List[Job]:
         (lambda rows: [to_job(row) for row in rows])
 
 
+def find_by_stage(stage: str) -> List[Job]:
+    return run_query(f'SELECT * FROM job where stage=%(s)s ;', s=stage) \
+        (lambda rows: [to_job(row) for row in rows])
+
+
+def find_by_stage_and_master(stage: str, master: str) -> List[Job]:
+    return run_query(f'SELECT * FROM job where stage=%(s)s AND master=%(m)s ;', s=stage, m=master) \
+        (lambda rows: [to_job(row) for row in rows])
+
+
 def find_active_by_master(master: str) -> List[Job]:
     return run_query(f'SELECT * FROM job where master=%(m)s AND is_active ;', m=master) \
+        (lambda rows: [to_job(row) for row in rows])
+
+
+def find_active_by_stage(stage: str) -> List[Job]:
+    return run_query(f'SELECT * FROM job where stage=%(s)s AND is_active ;', s=stage) \
         (lambda rows: [to_job(row) for row in rows])
 
 
@@ -55,25 +70,25 @@ def find_by_id(job_id: int) -> Optional[Job]:
     return run_query('SELECT * FROM job where id=%(ji)s ;', ji=job_id)(find)
 
 
-def find_by_params(master: str, title: str) -> Optional[Job]:
+def find_by_params(stage: str, master: str, title: str) -> Optional[Job]:
     def find(rows):
         for row in rows:
             return to_job(row)
         return None
 
     return run_query(
-        f'SELECT * FROM job where master=%(m)s AND title=%(t)s ;',
-        m=master, t=title)(find)
+        f'SELECT * FROM job where stage=%(s)s AND master=%(m)s AND title=%(t)s ;',
+        s=stage, m=master, t=title)(find)
 
 
 def save_job(job: Job, new: bool):
     if new:
-        run_query(f'INSERT INTO job (master, title, measurement) VALUES (%(m)s, %(t)s, %(me)s) ;',
-                  m=job.master, t=job.title, me=job.measurement)(id)
+        run_query(f'INSERT INTO job (stage, master, title, measurement) VALUES (%(s)s, %(m)s, %(t)s, %(me)s) ;',
+                  s=job.stage, m=job.master, t=job.title, me=job.measurement)(id)
     else:
         run_query(f"UPDATE job SET is_active = 't' WHERE "
-                  f'master = %(m)s AND title = %(t)s AND measurement = %(me)s ;',
-                  m=job.master, t=job.title, me=job.measurement)(id)
+                  f'stage = %(s)s AND master = %(m)s AND title = %(t)s AND measurement = %(me)s ;',
+                  s=job.stage, m=job.master, t=job.title, me=job.measurement)(id)
 
 
 def save_cjob(completed_job: CompletedJob) -> int:

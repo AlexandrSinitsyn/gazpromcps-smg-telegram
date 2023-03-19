@@ -19,16 +19,28 @@ class JobService:
         return find_by_master(master)
 
     @staticmethod
+    def get_by_stage(stage: str) -> List[Job]:
+        return find_by_stage(stage)
+
+    @staticmethod
+    def get_by_stage_and_master(stage: str, master: str) -> List[Job]:
+        return find_by_stage_and_master(stage, master)
+
+    @staticmethod
     def get_active_by_master(master: str) -> List[Job]:
         return find_active_by_master(master)
+
+    @staticmethod
+    def get_active_by_stage(stage: str) -> List[Job]:
+        return find_active_by_stage(stage)
 
     @staticmethod
     def get_by_id(job_id: int) -> Optional[Job]:
         return find_by_id(job_id)
 
     @staticmethod
-    def get_by_params(master: str, title: str) -> Optional[Job]:
-        return find_by_params(master, title)
+    def get_by_params(stage: str, master: str, title: str) -> Optional[Job]:
+        return find_by_params(stage, master, title)
 
     @staticmethod
     def day_activity(completed_job: CompletedJob) -> int:

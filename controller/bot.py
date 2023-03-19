@@ -35,6 +35,7 @@ class Session:
     request_builder = None
     answer_builder = None
     jobs = None  # type: List[Job]
+    __stage = None  # type: Optional[str]
     __master = None  # type: Optional[str]
     __locale = 'ru'
     __user_id: int
@@ -46,7 +47,7 @@ class Session:
         self.only_active = only_active
         self.reset()
 
-        self.jobs = list({job.master: job for job in
+        self.jobs = list({job.stage: job for job in
                           (job_service.get_all_active() if self.only_active else job_service.get_all())}.values())
 
     def user(self) -> Union[User, Superuser]:
@@ -65,10 +66,20 @@ class Session:
     def master(self):
         return self.__master
 
+    def stage(self):
+        return self.__stage
+
     def set_master_by_job(self, job_id: int):
         self.__master = job_service.get_by_id(job_id).master
         self.jobs = job_service.get_active_by_master(self.__master) if self.only_active \
             else job_service.get_by_master(self.__master)
+        self.pointer = 0
+
+    def set_stage_by_job(self, job_id: int):
+        self.__stage = job_service.get_by_id(job_id).stage
+        self.jobs = job_service.get_active_by_stage(self.__stage) if self.only_active \
+            else job_service.get_by_stage(self.__stage)
+        self.jobs = list({job.master: job for job in self.jobs}.values())
         self.pointer = 0
 
     def apply(self, *args):
@@ -118,6 +129,7 @@ class Session:
         self.request_builder = None
         self.answer_builder = None
         self.__master = None
+        self.__stage = None
 
 
 LIST_SIZE = 8
@@ -206,7 +218,7 @@ async def make_report(update: Update, context):
 
     session.start()
 
-    job_list = {job.master: job.id for job in session.interval()}
+    job_list = {job.stage: job.id for job in session.interval()}
 
     await update.message.reply_text(show_job_list(session, job_list),
                                     reply_markup=show_job_list_navigation(session, job_list))
@@ -477,8 +489,8 @@ async def navigation(update, context):
                                           reply_markup=show_job_list_navigation(session, job_list))
         return
 
-    if session.master() is not None:
-        await navigation_title(update, context)
+    if session.stage() is not None:
+        await navigation_master(update, context)
         return
 
     if data == 'next' or data == 'previous':
@@ -492,7 +504,7 @@ async def navigation(update, context):
         if mark == session.pointer:
             return
 
-        job_list = {job.master: job.id for job in session.interval()}
+        job_list = {job.stage: job.id for job in session.interval()}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
@@ -502,11 +514,11 @@ async def navigation(update, context):
         if session.answer_builder is None:
             session.apply(user_service, query.message.from_user.id)
 
-            if data.startswith('_'):
+            if data.startswith('_') or data.startswith('@'):
                 raise RequestError('invalid-request-sequence')
-            session.set_master_by_job(data)
+            session.set_stage_by_job(data)
 
-            job_list = {f'{job.title} ({job.measurement})': f'_{job.id}' for job in session.interval()}
+            job_list = {job.master: f'@{job.id}' for job in session.interval()}
 
             await context.bot.editMessageText(chat_id=query.message.chat_id,
                                               message_id=query.message.message_id,
@@ -528,6 +540,49 @@ async def navigation(update, context):
                 return datetime(now.year, now.month, now.day) - shift
 
             await session.answer_builder(def_time(data))
+
+
+async def navigation_master(update, context):
+    query = update.callback_query
+
+    session = get_session(query)
+
+    data = query.data
+    if session.master() is not None:
+        await navigation_title(update, context)
+        return
+
+    if data == 'next' or data == 'previous':
+        mark = session.pointer
+
+        if data == 'next':
+            session.move_right()
+        else:
+            session.move_left()
+
+        if mark == session.pointer:
+            return
+
+        job_list = {job.master: f'@{job.id}' for job in session.interval()}
+
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(session, job_list))
+    else:
+        if not data.startswith('@'):
+            raise RequestError('invalid-request-sequence')
+
+        session.apply(job_service, session.stage())
+
+        session.set_master_by_job(data[1:])
+
+        job_list = {f'{job.title} ({job.measurement})': f'_{job.id}' for job in session.interval()}
+
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(session, job_list))
 
 
 async def navigation_title(update, context):
@@ -570,7 +625,7 @@ async def select_number(update, context, job, message):
                                       message_id=message.message_id,
                                       text=text)
 
-    session.apply(job_service, job.master, job.title)
+    session.apply(job.master, job.title)
 
 
 async def accept_count(update, context):

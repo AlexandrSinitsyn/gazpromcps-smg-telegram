@@ -25,15 +25,17 @@ def run():
 
 
 def upload(file_name: str) -> List[Job]:
-    table = read_xlsx(file_name)
+    reader = ExcelReader(file_name)
+
+    table = reader.table()
 
     current_master = ''
 
     data = []
 
-    for sheet in table:
+    for sheet_name, sheet in table.items():
         wait = True
-        for row in sheet:
+        for i, row in enumerate(sheet):
             if row[0] == '№ п/п':
                 wait = False
                 continue
@@ -44,14 +46,12 @@ def upload(file_name: str) -> List[Job]:
             if row[0] == 'Потребность в людских и технических ресурсах':
                 break
 
-            logging.info(str(row[0:5]))
-
             if row[2] is not None and row[2].strip():
                 m = re.search(r"[^(\n]*(\(([^)]*)\))?(\n(.*))?", row[2].strip())
                 current_master = next(item for item in [m.group(i) for i in range(4, -1, -1)] if item is not None)
                 current_master = re.sub(r"\s+", " ", current_master).strip()
 
             if row[3] is not None and row[3].strip():
-                data.append(Job(-1, current_master.strip(), row[1].strip(), row[3].strip(), True, datetime.now()))
+                data.append(Job(-1, sheet_name, current_master.strip(), row[1].strip(), row[3].strip(), True, datetime.now()))
 
     return data

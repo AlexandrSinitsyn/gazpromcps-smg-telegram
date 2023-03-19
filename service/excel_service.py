@@ -11,10 +11,14 @@ os.makedirs(path_to_done, exist_ok=True)
 os.makedirs(path_to_job_list, exist_ok=True)
 
 
-def read_xlsx(file_name: str) -> List[List[List[str]]]:
-    workbook = openpyxl.load_workbook(file_name)
+class ExcelReader:
+    _workbook: openpyxl.Workbook
 
-    return [[list(row) for row in workbook[sheet].values] for sheet in workbook.sheetnames]
+    def __init__(self, filename: str):
+        self._workbook = openpyxl.load_workbook(filename)
+
+    def table(self):
+        return {sheet: [list(row) for row in self._workbook[sheet].values] for sheet in self._workbook.sheetnames}
 
 
 def write_xlsx(file_name: str, data: Dict[str, List[List[str]]]):
@@ -34,7 +38,7 @@ class ExcelService:
     @staticmethod
     def import_data(data: List[Job]):
         for j in data:
-            save_job(j, find_by_params(j.master, j.title) is None)
+            save_job(j, find_by_params(j.stage, j.master, j.title) is None)
 
     @staticmethod
     def import_csv(file_name: str):
@@ -47,7 +51,7 @@ class ExcelService:
             r = csv.reader(f, delimiter=',')
 
             for row in r:
-                data.append(Job(-1, row[1], capitalize_first(row[0]), row[2], True, datetime.now()))
+                data.append(Job(-1, row[1], row[2], capitalize_first(row[0]), row[3], True, datetime.now()))
 
         ExcelService.import_data(data)
 
