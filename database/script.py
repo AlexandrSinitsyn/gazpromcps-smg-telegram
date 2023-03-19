@@ -1,4 +1,3 @@
-import logging
 import re
 
 from service.excel_service import *
@@ -19,17 +18,18 @@ def run():
 
         for row in csv.reader(f, delimiter=','):
             # row := "title","master","measurement"
-            data.append(Job(-1, row[1], capitalize_first(row[0]), row[2], True, datetime.now()))
+            data.append(Job(-1, row[1], row[2], capitalize_first(row[0]), row[3], True, datetime.now()))
 
         excel_service.import_data(data)
 
 
-def upload(file_name: str) -> List[Job]:
+def upload(file_name: str):
     reader = ExcelReader(file_name)
 
     table = reader.table()
 
     current_master = ''
+    current_gen_plan = ''
 
     data = []
 
@@ -46,12 +46,20 @@ def upload(file_name: str) -> List[Job]:
             if row[0] == 'Потребность в людских и технических ресурсах':
                 break
 
+            if reader.is_blue(sheet_name, i, col=1):
+                if row[1] is None:
+                    current_gen_plan = sheet[i - 1][1]
+                else:
+                    current_gen_plan = row[1]
+                continue
+
             if row[2] is not None and row[2].strip():
                 m = re.search(r"[^(\n]*(\(([^)]*)\))?(\n(.*))?", row[2].strip())
                 current_master = next(item for item in [m.group(i) for i in range(4, -1, -1)] if item is not None)
                 current_master = re.sub(r"\s+", " ", current_master).strip()
 
             if row[3] is not None and row[3].strip():
-                data.append(Job(-1, sheet_name, current_master.strip(), row[1].strip(), row[3].strip(), True, datetime.now()))
+                data.append(Job(-1, sheet_name, current_master.strip(), row[1].strip(), row[3].strip(),
+                                True, datetime.now()))
 
     return data

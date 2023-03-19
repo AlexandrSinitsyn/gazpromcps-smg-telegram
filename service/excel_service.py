@@ -1,5 +1,6 @@
 import csv
 import openpyxl
+from openpyxl.utils import get_column_letter
 from typing import List, Dict
 
 from repository.job_repository import *
@@ -13,12 +14,23 @@ os.makedirs(path_to_job_list, exist_ok=True)
 
 class ExcelReader:
     _workbook: openpyxl.Workbook
+    _blue = 'FFB9CDE5'
+    _green = 'FF33CC33'
 
     def __init__(self, filename: str):
         self._workbook = openpyxl.load_workbook(filename)
 
     def table(self):
         return {sheet: [list(row) for row in self._workbook[sheet].values] for sheet in self._workbook.sheetnames}
+
+    def get_color(self, sheet: str, row: int, col: int):
+        return self._workbook[sheet][get_column_letter(col + 1) + str(row)].fill.start_color.index
+
+    def is_green(self, sheet: str, row: int, col: int):
+        return self.get_color(sheet, row, col) == self._green
+
+    def is_blue(self, sheet: str, row: int, col: int):
+        return self.get_color(sheet, row, col) in [self._blue, '3', '4']
 
 
 def write_xlsx(file_name: str, data: Dict[str, List[List[str]]]):
