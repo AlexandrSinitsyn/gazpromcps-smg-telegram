@@ -1,5 +1,9 @@
 # noinspection PyPackageRequirements
-from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler, CallbackQueryHandler, filters
+import datetime
+from datetime import timezone
+
+# noinspection PyPackageRequirements
+from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler, CallbackQueryHandler, filters, JobQueue
 # noinspection PyPackageRequirements
 from telegram.ext.filters import Regex
 
@@ -19,7 +23,7 @@ logging.basicConfig(
 
 if __name__ == '__main__':
     TOKEN = os.environ.get('TOKEN')
-    application = ApplicationBuilder().token(TOKEN).build()
+    application = ApplicationBuilder().token(TOKEN).job_queue(JobQueue()).build()
 
     languages = ['ru', 'en']  # , 'lang']
     stuff = ['reload', 'promote', 'list_users']
@@ -43,5 +47,20 @@ if __name__ == '__main__':
     application.add_handler(MessageHandler(Regex('^\s*([0-9]*[.])?[0-9]+,\s*[^,]+,\s*\d+,\s*\S+\s*$'), full_request))
 
     application.add_error_handler(error_handler)
+
+    async def job(context):
+        for session in all_sessions.values():
+            if session.chat_id() is not None and \
+                    isinstance(session.user(), Superuser) or \
+                    (session.user().admin_in is not None and len(session.user().admin_in) != 0):
+                await context.bot.send_message(chat_id=session.chat_id(),
+                                               text=get_daily_report(session))
+
+    job_queue = application.job_queue
+
+    now = datetime.now()
+    job_queue.run_repeating(job, interval=timedelta(days=1),
+                            first=datetime(now.year, now.month, now.day, hour=22, minute=00, second=00,
+                                           tzinfo=datetime.now(timezone.utc).astimezone().tzinfo))
 
     application.run_polling()

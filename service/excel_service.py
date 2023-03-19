@@ -76,6 +76,11 @@ class ExcelService:
         drop_table()
 
     @staticmethod
+    def from_today():
+        now = datetime.now()
+        return collect_daily(datetime(now.year, now.month, now.day))
+
+    @staticmethod
     def summarise(start: datetime) -> List[str]:
         total = collect_daily(start)
 

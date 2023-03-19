@@ -39,11 +39,15 @@ class Session:
     __master = None  # type: Optional[str]
     __locale = 'ru'
     __user_id: int
+    __chat_id: int = None
     __bundle = None  # type: ResourceBundle
     last_message_id: int = None
     only_active: bool
 
-    def start(self, only_active: bool = True):
+    def start(self, chat_id: int = None, only_active: bool = True):
+        if chat_id is not None:
+            self.__chat_id = chat_id
+
         self.only_active = only_active
         self.reset()
 
@@ -52,6 +56,9 @@ class Session:
 
     def user(self) -> Union[User, Superuser]:
         return user_service.get_by_id(self.__user_id)
+
+    def chat_id(self):
+        return self.__chat_id
 
     def set_user(self, user_id: int):
         self.__user_id = user_id
@@ -216,7 +223,7 @@ async def reload(update, context):
 async def make_report(update: Update, context):
     session = get_session(update.message)
 
-    session.start()
+    session.start(update.message.chat_id)
 
     job_list = {job.stage: job.id for job in session.interval()}
 
@@ -353,6 +360,18 @@ async def get_media(update, context):
                                         one_time_keyboard=True))
 
     media_service.delete_tmp()
+
+
+def get_daily_report(session) -> str:
+    cjobs = excel_service.from_today()
+    masters = {cj.job.master for cj in cjobs}
+    outer = {j.master for j in job_service.get_all_active() if j.master not in masters}
+
+    return f'Сегодня ({datetime.now()})' + \
+           'Внесли:\n' + \
+           '\n'.join([f'\t- {e}' for e in masters]) + '\n\n' + \
+           'Не внесли:\n\t' + \
+           '\n'.join([f'\t- {e}' for e in outer])
 
 
 async def ru(update, context):
@@ -706,7 +725,9 @@ async def run_request(update, context, request):
 
 
 async def error_handler(update: Update, context):
-    if update.callback_query is None:
+    if update is None:
+        raise context.error
+    elif update.callback_query is None:
         session = get_session(update.message)
     else:
         session = get_session(update.callback_query)
