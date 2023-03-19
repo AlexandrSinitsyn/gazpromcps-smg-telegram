@@ -48,6 +48,7 @@ services:
             - ./repository/:/repository/
             - ./resources/:/resources/
             - ./service/:/service/
+            - ./main.py:/main.py
         command: 'python3 main.py'
         networks:
             - internal
