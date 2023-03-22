@@ -2,6 +2,7 @@ create table job
 (
     id bigserial primary key ,
     stage varchar(255) not null ,
+    gen_plan varchar(255) not null ,
     master varchar(255) not null ,
     title varchar(255) not null ,
     measurement varchar(255) not null ,

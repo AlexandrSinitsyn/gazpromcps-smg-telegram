@@ -39,8 +39,8 @@ class JobService:
         return find_by_id(job_id)
 
     @staticmethod
-    def get_by_params(stage: str, master: str, title: str) -> Optional[Job]:
-        return find_by_params(stage, master, title)
+    def get_by_params(stage: str, gen_plan: str, master: str, title: str) -> Optional[Job]:
+        return find_by_params(stage, gen_plan, master, title)
 
     @staticmethod
     def day_activity(completed_job: CompletedJob) -> int:

@@ -18,7 +18,7 @@ def run():
 
         for row in csv.reader(f, delimiter=','):
             # row := "title","master","measurement"
-            data.append(Job(-1, row[1], row[2], capitalize_first(row[0]), row[3], True, datetime.now()))
+            data.append(Job(-1, row[1], row[2], row[3], capitalize_first(row[0]), row[4], True, datetime.now()))
 
         excel_service.import_data(data)
 
@@ -59,7 +59,7 @@ def upload(file_name: str):
                 current_master = re.sub(r"\s+", " ", current_master).strip()
 
             if row[3] is not None and row[3].strip():
-                data.append(Job(-1, sheet_name, current_master.strip(), row[1].strip(), row[3].strip(),
+                data.append(Job(-1, sheet_name, current_gen_plan, current_master.strip(), row[1].strip(), row[3].strip(),
                                 True, datetime.now()))
 
     return data

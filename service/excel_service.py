@@ -63,7 +63,7 @@ class ExcelService:
             r = csv.reader(f, delimiter=',')
 
             for row in r:
-                data.append(Job(-1, row[1], row[2], capitalize_first(row[0]), row[3], True, datetime.now()))
+                data.append(Job(-1, row[1], row[2], row[3], capitalize_first(row[0]), row[4], True, datetime.now()))
 
         ExcelService.import_data(data)
 

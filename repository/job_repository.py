@@ -4,11 +4,11 @@ from repository.database import *
 from dto.job import *
 
 
-# row := (id, stage, master, title, measurement, is_active, timestamp)
+# row := (id, stage, gen_plan, master, title, measurement, is_active, timestamp)
 # row := (id, job_id, count, timestamp)
 
 def to_job(row) -> Job:
-    return Job(row[0], row[1], row[2], row[3], row[4], row[5], row[6])
+    return Job(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
 
 
 def to_cjob(row) -> CompletedJob:
@@ -70,15 +70,15 @@ def find_by_id(job_id: int) -> Optional[Job]:
     return run_query('SELECT * FROM job where id=%(ji)s ;', ji=job_id)(find)
 
 
-def find_by_params(stage: str, master: str, title: str) -> Optional[Job]:
+def find_by_params(stage: str, gen_plan: str, master: str, title: str) -> Optional[Job]:
     def find(rows):
         for row in rows:
             return to_job(row)
         return None
 
     return run_query(
-        f'SELECT * FROM job where stage=%(s)s AND master=%(m)s AND title=%(t)s ;',
-        s=stage, m=master, t=title)(find)
+        f'SELECT * FROM job where stage=%(s)s AND gen_plan=%(gp)s AND master=%(m)s AND title=%(t)s ;',
+        s=stage, gp=gen_plan, m=master, t=title)(find)
 
 
 def save_job(job: Job, new: bool):
