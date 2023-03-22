@@ -52,8 +52,12 @@ class Session:
         self.only_active = only_active
         self.reset()
 
-        self.jobs = list({job.stage: job for job in
-                          (job_service.get_all_active() if self.only_active else job_service.get_all())}.values())
+        self.get_distinct_by(lambda job: job.stage, lambda _: True)
+
+    def get_distinct_by(self, field, condition):
+        self.jobs = list({field(job): job for job in
+                          (job_service.get_all_active() if self.only_active else job_service.get_all())
+                          if condition(job)}.values())
 
     def user(self) -> Union[User, Superuser]:
         return user_service.get_by_id(self.__user_id)
@@ -82,17 +86,20 @@ class Session:
 
     def set_stage_by_job(self, job_id: int):
         self.__stage = job_service.get_by_id(job_id).stage
-        self.jobs = list({job.gen_plan: job for job in self.jobs}.values())
+        self.get_distinct_by(lambda job: job.gen_plan, lambda job: job.stage == self.__stage)
         self.pointer = 0
 
     def set_gen_plan_by_job(self, job_id: int):
         self.__gen_plan = job_service.get_by_id(job_id).gen_plan
-        self.jobs = list({job.master: job for job in self.jobs}.values())
+        self.get_distinct_by(lambda job: job.master, lambda job: job.stage == self.__stage and \
+                                                                 job.gen_plan == self.__gen_plan)
         self.pointer = 0
 
     def set_master_by_job(self, job_id: int):
         self.__master = job_service.get_by_id(job_id).master
-        self.jobs = [job for job in self.jobs if job.master == self.__master]
+        self.get_distinct_by(lambda job: job.id, lambda job: job.stage == self.__stage and \
+                                                             job.gen_plan == self.__gen_plan and \
+                                                             job.master == self.__master)
         self.pointer = 0
 
     def apply(self, *args):
@@ -232,7 +239,7 @@ async def make_report(update: Update, context):
 
     session.start(update.message.chat_id)
 
-    job_list = {job.stage: job.id for job in session.interval()}
+    job_list = {job.stage: f'st{job.id}' for job in session.interval()}
 
     await update.message.reply_text(show_job_list(session, job_list),
                                     reply_markup=show_job_list_navigation(session, job_list))
@@ -480,6 +487,47 @@ def show_job_list(session, job_list):
                                                      for i, job in enumerate(job_list)])
 
 
+async def nav_menu(update, context, on_pass, next_fun, prefix, my_job_list_show, on_success, next_job_list_show):
+    query = update.callback_query
+
+    session = get_session(query)
+
+    data = query.data
+    if on_pass is not None:
+        await next_fun(update, context)
+        return
+
+    if data == 'next' or data == 'previous':
+        mark = session.pointer
+
+        if data == 'next':
+            session.move_right()
+        else:
+            session.move_left()
+
+        if mark == session.pointer:
+            return
+
+        job_list = {my_job_list_show(job)[0]: my_job_list_show(job)[1] for job in session.interval()}
+
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(session, job_list))
+    else:
+        if not data.startswith(prefix):
+            raise RequestError('invalid-request-sequence')
+
+        on_success(data[2:])
+
+        job_list = {next_job_list_show(job)[0]: next_job_list_show(job)[1] for job in session.interval()}
+
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(session, job_list))
+
+
 async def navigation(update, context):
     query = update.callback_query
 
@@ -496,7 +544,7 @@ async def navigation(update, context):
 
         session.start()
 
-        job_list = {job.master: job.id for job in session.interval()}
+        job_list = {job.stage: f'st{job.id}' for job in session.interval()}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
@@ -507,7 +555,7 @@ async def navigation(update, context):
     if data == 'all':
         session.start(False)
 
-        job_list = {job.master: job.id for job in session.interval()}
+        job_list = {job.stage: f'st{job.id}' for job in session.interval()}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
@@ -515,57 +563,32 @@ async def navigation(update, context):
                                           reply_markup=show_job_list_navigation(session, job_list))
         return
 
-    if session.stage() is not None:
-        await navigation_gen_plan(update, context)
+    if data not in ['next', 'previous'] and session.answer_builder is not None:
+        def def_time(text: str):
+            now = datetime.now()
+
+            shift = {
+                'day': timedelta(days=1),
+                'week': timedelta(days=7),
+                'month': timedelta(days=31),
+                'year': timedelta(days=365),
+                'total': timedelta(days=now.year * 365 + now.month * 30 + now.day - 2),
+                # hack to not getting into BC
+            }[text]
+
+            return datetime(now.year, now.month, now.day) - shift
+
+        await session.answer_builder(def_time(data))
         return
 
-    if data == 'next' or data == 'previous':
-        mark = session.pointer
+    def on_success(data):
+        session.apply(user_service, query.message.from_user.id)
+        session.set_stage_by_job(data)
 
-        if data == 'next':
-            session.move_right()
-        else:
-            session.move_left()
-
-        if mark == session.pointer:
-            return
-
-        job_list = {job.stage: job.id for job in session.interval()}
-
-        await context.bot.editMessageText(chat_id=query.message.chat_id,
-                                          message_id=query.message.message_id,
-                                          text=show_job_list(session, job_list),
-                                          reply_markup=show_job_list_navigation(session, job_list))
-    else:
-        if session.answer_builder is None:
-            session.apply(user_service, query.message.from_user.id)
-
-            if data.startswith('_') or data.startswith('@') or data.startswith('!'):
-                raise RequestError('invalid-request-sequence')
-            session.set_stage_by_job(data)
-
-            job_list = {job.gen_plan: f'!{job.id}' for job in session.interval()}
-
-            await context.bot.editMessageText(chat_id=query.message.chat_id,
-                                              message_id=query.message.message_id,
-                                              text=show_job_list(session, job_list),
-                                              reply_markup=show_job_list_navigation(session, job_list))
-        else:
-            def def_time(text: str):
-                now = datetime.now()
-
-                shift = {
-                    'day': timedelta(days=1),
-                    'week': timedelta(days=7),
-                    'month': timedelta(days=31),
-                    'year': timedelta(days=365),
-                    'total': timedelta(days=now.year * 365 + now.month * 30 + now.day - 2),
-                    # hack to not getting into BC
-                }[text]
-
-                return datetime(now.year, now.month, now.day) - shift
-
-            await session.answer_builder(def_time(data))
+    await nav_menu(update, context, session.stage(), navigation_gen_plan, 'st',
+                   lambda job: (job.stage, f'st{job.id}'),
+                   on_success,
+                   lambda job: (job.gen_plan, f'gp{job.id}'))
 
 
 async def navigation_gen_plan(update, context):
@@ -573,42 +596,13 @@ async def navigation_gen_plan(update, context):
 
     session = get_session(query)
 
-    data = query.data
-    if session.gen_plan() is not None:
-        await navigation_master(update, context)
-        return
+    def on_success(data):
+        session.set_gen_plan_by_job(data)
 
-    if data == 'next' or data == 'previous':
-        mark = session.pointer
-
-        if data == 'next':
-            session.move_right()
-        else:
-            session.move_left()
-
-        if mark == session.pointer:
-            return
-
-        job_list = {job.gen_plan: f'!{job.id}' for job in session.interval()}
-
-        await context.bot.editMessageText(chat_id=query.message.chat_id,
-                                          message_id=query.message.message_id,
-                                          text=show_job_list(session, job_list),
-                                          reply_markup=show_job_list_navigation(session, job_list))
-    else:
-        if not data.startswith('!'):
-            raise RequestError('invalid-request-sequence')
-
-        session.apply(job_service, session.stage())
-
-        session.set_gen_plan_by_job(data[1:])
-
-        job_list = {job.master: f'@{job.id}' for job in session.interval()}
-
-        await context.bot.editMessageText(chat_id=query.message.chat_id,
-                                          message_id=query.message.message_id,
-                                          text=show_job_list(session, job_list),
-                                          reply_markup=show_job_list_navigation(session, job_list))
+    await nav_menu(update, context, session.gen_plan(), navigation_master, 'gp',
+                   lambda job: (job.gen_plan, f'gp{job.id}'),
+                   on_success,
+                   lambda job: (job.master, f'ms{job.id}'))
 
 
 async def navigation_master(update, context):
@@ -616,42 +610,13 @@ async def navigation_master(update, context):
 
     session = get_session(query)
 
-    data = query.data
-    if session.master() is not None:
-        await navigation_title(update, context)
-        return
+    def on_success(data):
+        session.set_master_by_job(data)
 
-    if data == 'next' or data == 'previous':
-        mark = session.pointer
-
-        if data == 'next':
-            session.move_right()
-        else:
-            session.move_left()
-
-        if mark == session.pointer:
-            return
-
-        job_list = {job.master: f'@{job.id}' for job in session.interval()}
-
-        await context.bot.editMessageText(chat_id=query.message.chat_id,
-                                          message_id=query.message.message_id,
-                                          text=show_job_list(session, job_list),
-                                          reply_markup=show_job_list_navigation(session, job_list))
-    else:
-        if not data.startswith('@'):
-            raise RequestError('invalid-request-sequence')
-
-        session.apply(job_service, session.stage())
-
-        session.set_master_by_job(data[1:])
-
-        job_list = {f'{job.title} ({job.measurement})': f'_{job.id}' for job in session.interval()}
-
-        await context.bot.editMessageText(chat_id=query.message.chat_id,
-                                          message_id=query.message.message_id,
-                                          text=show_job_list(session, job_list),
-                                          reply_markup=show_job_list_navigation(session, job_list))
+    await nav_menu(update, context, session.master(), navigation_title, 'ms',
+                   lambda job: (job.master, f'ms{job.id}'),
+                   on_success,
+                   lambda job: (f'{job.title} ({job.measurement})', f'ti{job.id}'))
 
 
 async def navigation_title(update, context):
@@ -671,16 +636,16 @@ async def navigation_title(update, context):
         if mark == session.pointer:
             return
 
-        job_list = {f'{job.title} ({job.measurement})': f'_{job.id}' for job in session.interval()}
+        job_list = {f'{job.title} ({job.measurement})': f'ti{job.id}' for job in session.interval()}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
                                           text=show_job_list(session, job_list),
                                           reply_markup=show_job_list_navigation(session, job_list))
     else:
-        if not data.startswith('_'):
+        if not data.startswith('ti'):
             raise RequestError('invalid-request-sequence')
-        await select_number(update, context, job_service.get_by_id(int(data[1:])), query.message)
+        await select_number(update, context, job_service.get_by_id(int(data[2:])), query.message)
 
 
 async def select_number(update, context, job, message):
@@ -694,7 +659,7 @@ async def select_number(update, context, job, message):
                                       message_id=message.message_id,
                                       text=text)
 
-    session.apply(job.gen_plan, job.master, job.title)
+    session.apply(job_service, job.stage, job.gen_plan, job.master, job.title)
 
 
 async def accept_count(update, context):
@@ -705,7 +670,7 @@ async def accept_count(update, context):
 
         request = session.apply(count)
         await run_request(update, context, request)
-    except ValueError:
+    except ValueError as e:
         raise RequestError('invalid-input-format')
 
 

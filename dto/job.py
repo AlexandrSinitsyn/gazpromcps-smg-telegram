@@ -22,7 +22,7 @@ class Job:
         return '"Этап","Ген план","Подрядчик","Вип работ","Единицы измерения"'
 
     def __str__(self):
-        return f'"{self.stage}",{self.gen_plan}","{self.master}","{self.title}","{self.measurement}"'
+        return f'"{self.stage}","{self.gen_plan}","{self.master}","{self.title}","{self.measurement}"'
 
 
 @dataclass

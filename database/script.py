@@ -29,11 +29,12 @@ def upload(file_name: str):
     table = reader.table()
 
     current_master = ''
-    current_gen_plan = ''
 
     data = []
 
     for sheet_name, sheet in table.items():
+        current_gen_plan = 'Другие'
+
         wait = True
         for i, row in enumerate(sheet):
             if row[0] == '№ п/п':
@@ -46,11 +47,14 @@ def upload(file_name: str):
             if row[0] == 'Потребность в людских и технических ресурсах':
                 break
 
-            if reader.is_blue(sheet_name, i, col=1):
-                if row[1] is None:
-                    current_gen_plan = sheet[i - 1][1]
-                else:
-                    current_gen_plan = row[1]
+            # if reader.is_blue(sheet_name, i, col=1):
+            #     if row[1] is None:
+            #         current_gen_plan = sheet[i - 1][1]
+            #     else:
+            #         current_gen_plan = row[1]
+            #     continue
+            if isinstance(row[0], str) and '*' in row[0]:
+                current_gen_plan = row[1].strip()
                 continue
 
             if row[2] is not None and row[2].strip():

@@ -83,12 +83,12 @@ def find_by_params(stage: str, gen_plan: str, master: str, title: str) -> Option
 
 def save_job(job: Job, new: bool):
     if new:
-        run_query(f'INSERT INTO job (stage, master, title, measurement) VALUES (%(s)s, %(m)s, %(t)s, %(me)s) ;',
-                  s=job.stage, m=job.master, t=job.title, me=job.measurement)(id)
+        run_query(f'INSERT INTO job (stage, gen_plan, master, title, measurement) VALUES (%(s)s, %(gp)s, %(m)s, %(t)s, %(me)s) ;',
+                  s=job.stage, gp=job.gen_plan, m=job.master, t=job.title, me=job.measurement)(id)
     else:
         run_query(f"UPDATE job SET is_active = 't' WHERE "
-                  f'stage = %(s)s AND master = %(m)s AND title = %(t)s AND measurement = %(me)s ;',
-                  s=job.stage, m=job.master, t=job.title, me=job.measurement)(id)
+                  f'stage = %(s)s AND gen_plan = %(gp)s AND master = %(m)s AND title = %(t)s AND measurement = %(me)s ;',
+                  s=job.stage, gp=job.gen_plan, m=job.master, t=job.title, me=job.measurement)(id)
 
 
 def save_cjob(completed_job: CompletedJob) -> int:

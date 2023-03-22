@@ -50,7 +50,7 @@ class ExcelService:
     @staticmethod
     def import_data(data: List[Job]):
         for j in data:
-            save_job(j, find_by_params(j.stage, j.master, j.title) is None)
+            save_job(j, find_by_params(j.stage, j.gen_plan, j.master, j.title) is None)
 
     @staticmethod
     def import_csv(file_name: str):
