@@ -3,7 +3,7 @@ import os
 import re
 import threading
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import ResourceBundle
 # noinspection PyPackageRequirements
@@ -367,7 +367,7 @@ def get_daily_report(session) -> str:
     masters = {cj.job.master for cj in cjobs}
     outer = {j.master for j in job_service.get_all_active() if j.master not in masters}
 
-    return f'Сегодня ({datetime.now()})' + \
+    return f'Сегодня ({datetime.now(tz=timezone.utc).astimezone().strftime("%Y-%m-%d (%H-%M)")})\n' + \
            'Внесли:\n' + \
            '\n'.join([f'\t- {e}' for e in masters]) + '\n\n' + \
            'Не внесли:\n\t' + \

@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     now = datetime.now()
     job_queue.run_repeating(job, interval=timedelta(days=1),
-                            first=datetime(now.year, now.month, now.day, hour=22, minute=00, second=00,
+                            first=datetime(now.year, now.month, now.day, hour=19, minute=00, second=00,
                                            tzinfo=datetime.now(timezone.utc).astimezone().tzinfo))
 
     application.run_polling()
