@@ -35,9 +35,11 @@ class Session:
     request_builder = None
     answer_builder = None
     jobs = None  # type: List[Job]
+    index = 0
     __stage = None  # type: Optional[str]
     __gen_plan = None  # type: Optional[str]
     __master = None  # type: Optional[str]
+    __title = None  # type: Optional[str]
     __locale = 'ru'
     __user_id: int
     __chat_id: int = None
@@ -55,9 +57,10 @@ class Session:
         self.get_distinct_by(lambda job: job.stage, lambda _: True)
 
     def get_distinct_by(self, field, condition):
-        self.jobs = list({field(job): job for job in
-                          (job_service.get_all_active() if self.only_active else job_service.get_all())
-                          if condition(job)}.values())
+        self.jobs = sorted({field(job): job for job in
+                            (job_service.get_all_active() if self.only_active else job_service.get_all())
+                            if condition(job)}.values(),
+                           key=lambda job: {0: job.stage, 1: job.master, 2: job.gen_plan, 3: job.title}[self.index])
 
     def user(self) -> Union[User, Superuser]:
         return user_service.get_by_id(self.__user_id)
@@ -75,6 +78,23 @@ class Session:
         else:
             raise RequestError('not-allowed')
 
+    def step(self):
+        self.index += 1
+
+    def backwards(self):
+        self.index = max(self.index - 1, 0)
+
+        if self.index == 0:
+            self.__stage = None
+        elif self.index == 1:
+            self.__master = None
+        elif self.index == 2:
+            self.__gen_plan = None
+        elif self.index == 3:
+            self.__title = None
+
+        self.update_job_list()
+
     def stage(self):
         return self.__stage
 
@@ -84,34 +104,36 @@ class Session:
     def master(self):
         return self.__master
 
-    def set_stage_by_job(self, job_id: int):
-        self.__stage = job_service.get_by_id(job_id).stage
-        self.get_distinct_by(lambda job: job.gen_plan, lambda job: job.stage == self.__stage)
+    def title(self):
+        return self.__title
+
+    def set_by_job(self, job_id: int, update_list: bool = True):
+        job = job_service.get_by_id(job_id)
+
+        if self.index == 0:
+            self.__stage = job.stage
+        elif self.index == 1:
+            self.__master = job.master
+        elif self.index == 2:
+            self.__gen_plan = job.gen_plan
+        elif self.index == 3:
+            self.__title = job.title
+
+        self.step()
+
+        if update_list:
+            self.update_job_list()
+
+    def update_job_list(self):
+        self.get_distinct_by(lambda job: {0: job.stage, 1: job.master, 2: job.gen_plan, 3: job.title}[self.index],
+                             lambda job: (self.__stage is None or job.stage == self.__stage) and \
+                                         (self.__master is None or job.master == self.__master) and \
+                                         (self.__gen_plan is None or job.gen_plan == self.__gen_plan))
         self.pointer = 0
 
-    def set_gen_plan_by_job(self, job_id: int):
-        self.__gen_plan = job_service.get_by_id(job_id).gen_plan
-        self.get_distinct_by(lambda job: job.master, lambda job: job.stage == self.__stage and \
-                                                                 job.gen_plan == self.__gen_plan)
-        self.pointer = 0
-
-    def set_master_by_job(self, job_id: int):
-        self.__master = job_service.get_by_id(job_id).master
-        self.get_distinct_by(lambda job: job.id, lambda job: job.stage == self.__stage and \
-                                                             job.gen_plan == self.__gen_plan and \
-                                                             job.master == self.__master)
-        self.pointer = 0
-
-    def apply(self, *args):
-        try:
-            if self.request_builder is None:
-                self.request_builder = Request.generate(*args)
-            else:
-                self.request_builder = self.request_builder(*args)
-
-            return self.request_builder
-        except TypeError:
-            raise RequestError('invalid-request-sequence')
+    def generate_request(self, count: float):
+        return Request.generate(user_service, self.__user_id)\
+            (job_service, self.stage(), self.gen_plan(), self.master(), self.title())(count)
 
     def move_left(self):
         self.pointer = max(self.pointer - LIST_SIZE, 0)
@@ -145,6 +167,7 @@ class Session:
         return self.__bundle.get(key)
 
     def reset(self):
+        self.index = 0
         self.pointer = 0
         self.request_builder = None
         self.answer_builder = None
@@ -476,7 +499,8 @@ def show_job_list_navigation(session, job_list):
         else [InlineKeyboardButton("←", callback_data='previous')] if session.hit_bounds() > 0
         else [InlineKeyboardButton("→", callback_data='next')],
 
-        [InlineKeyboardButton("Все работы", callback_data='all')] if session.only_active else []
+        [InlineKeyboardButton("Все работы", callback_data='all')] if session.only_active else [],
+        [InlineKeyboardButton("Назад", callback_data='backwards')] if session.index > 0 else []
     ]
 
     return InlineKeyboardMarkup(button_list)
@@ -487,7 +511,7 @@ def show_job_list(session, job_list):
                                                      for i, job in enumerate(job_list)])
 
 
-async def nav_menu(update, context, on_pass, next_fun, prefix, my_job_list_show, on_success, next_job_list_show):
+async def nav_menu(update, context, on_pass, next_fun, prefix, my_job_list_show, next_job_list_show):
     query = update.callback_query
 
     session = get_session(query)
@@ -518,7 +542,7 @@ async def nav_menu(update, context, on_pass, next_fun, prefix, my_job_list_show,
         if not data.startswith(prefix):
             raise RequestError('invalid-request-sequence')
 
-        on_success(data[2:])
+        session.set_by_job(int(data[2:]))
 
         job_list = {next_job_list_show(job)[0]: next_job_list_show(job)[1] for job in session.interval()}
 
@@ -540,11 +564,18 @@ async def navigation(update, context):
                                           text=session.message('load-media'))
         return
     elif data == 'no':
-        session.reset()
-
-        session.start()
-
-        job_list = {job.stage: f'st{job.id}' for job in session.interval()}
+        session.backwards()
+        # session.reset()
+        #
+        # session.start()
+        #
+        # job_list = {job.stage: f'st{job.id}' for job in session.interval()}
+        #
+        # await context.bot.editMessageText(chat_id=query.message.chat_id,
+        #                                   message_id=query.message.message_id,
+        #                                   text=show_job_list(session, job_list),
+        #                                   reply_markup=show_job_list_navigation(session, job_list))
+        job_list = {f'{job.title} ({job.measurement})': f'ti{job.id}' for job in session.interval()}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
@@ -556,6 +587,23 @@ async def navigation(update, context):
         session.start(False)
 
         job_list = {job.stage: f'st{job.id}' for job in session.interval()}
+
+        await context.bot.editMessageText(chat_id=query.message.chat_id,
+                                          message_id=query.message.message_id,
+                                          text=show_job_list(session, job_list),
+                                          reply_markup=show_job_list_navigation(session, job_list))
+        return
+
+    if data == 'backwards':
+        session.backwards()
+
+        session.update_job_list()
+
+        def nxt(job):
+            return {0: job.stage, 1: job.master, 2: job.gen_plan, 3: f'{job.title} ({job.measurement})'}[session.index],\
+                   {0: f'st{job.id}', 1: f'ms{job.id}', 2: f'gp{job.id}', 3: f'ti{job.id}'}[session.index]
+
+        job_list = {nxt(job)[0]: nxt(job)[1] for job in session.interval()}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
                                           message_id=query.message.message_id,
@@ -581,27 +629,8 @@ async def navigation(update, context):
         await session.answer_builder(def_time(data))
         return
 
-    def on_success(data):
-        session.apply(user_service, query.message.from_user.id)
-        session.set_stage_by_job(data)
-
-    await nav_menu(update, context, session.stage(), navigation_gen_plan, 'st',
+    await nav_menu(update, context, session.stage(), navigation_master, 'st',
                    lambda job: (job.stage, f'st{job.id}'),
-                   on_success,
-                   lambda job: (job.gen_plan, f'gp{job.id}'))
-
-
-async def navigation_gen_plan(update, context):
-    query = update.callback_query
-
-    session = get_session(query)
-
-    def on_success(data):
-        session.set_gen_plan_by_job(data)
-
-    await nav_menu(update, context, session.gen_plan(), navigation_master, 'gp',
-                   lambda job: (job.gen_plan, f'gp{job.id}'),
-                   on_success,
                    lambda job: (job.master, f'ms{job.id}'))
 
 
@@ -610,12 +639,18 @@ async def navigation_master(update, context):
 
     session = get_session(query)
 
-    def on_success(data):
-        session.set_master_by_job(data)
-
-    await nav_menu(update, context, session.master(), navigation_title, 'ms',
+    await nav_menu(update, context, session.master(), navigation_gen_plan, 'ms',
                    lambda job: (job.master, f'ms{job.id}'),
-                   on_success,
+                   lambda job: (job.gen_plan, f'gp{job.id}'))
+
+
+async def navigation_gen_plan(update, context):
+    query = update.callback_query
+
+    session = get_session(query)
+
+    await nav_menu(update, context, session.gen_plan(), navigation_title, 'gp',
+                   lambda job: (job.gen_plan, f'gp{job.id}'),
                    lambda job: (f'{job.title} ({job.measurement})', f'ti{job.id}'))
 
 
@@ -645,7 +680,10 @@ async def navigation_title(update, context):
     else:
         if not data.startswith('ti'):
             raise RequestError('invalid-request-sequence')
-        await select_number(update, context, job_service.get_by_id(int(data[2:])), query.message)
+        job_id = int(data[2:])
+
+        session.set_by_job(job_id, False)
+        await select_number(update, context, job_service.get_by_id(job_id), query.message)
 
 
 async def select_number(update, context, job, message):
@@ -659,8 +697,6 @@ async def select_number(update, context, job, message):
                                       message_id=message.message_id,
                                       text=text)
 
-    session.apply(job_service, job.stage, job.gen_plan, job.master, job.title)
-
 
 async def accept_count(update, context):
     session = get_session(update.message)
@@ -668,7 +704,7 @@ async def accept_count(update, context):
     try:
         count = float(update.message.text.replace(',', '.'))
 
-        request = session.apply(count)
+        request = session.generate_request(count)
         await run_request(update, context, request)
     except ValueError as e:
         raise RequestError('invalid-input-format')
