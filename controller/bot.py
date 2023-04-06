@@ -565,16 +565,7 @@ async def navigation(update, context):
         return
     elif data == 'no':
         session.backwards()
-        # session.reset()
-        #
-        # session.start()
-        #
-        # job_list = {job.stage: f'st{job.id}' for job in session.interval()}
-        #
-        # await context.bot.editMessageText(chat_id=query.message.chat_id,
-        #                                   message_id=query.message.message_id,
-        #                                   text=show_job_list(session, job_list),
-        #                                   reply_markup=show_job_list_navigation(session, job_list))
+
         job_list = {f'{job.title} ({job.measurement})': f'ti{job.id}' for job in session.interval()}
 
         await context.bot.editMessageText(chat_id=query.message.chat_id,
