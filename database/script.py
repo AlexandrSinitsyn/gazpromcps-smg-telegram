@@ -116,7 +116,7 @@ def upload(file_name: str):
 
     for sheet_name in wb.sheetnames:
         logging.info(f'WORKSHEET: {sheet_name}')
-        current_gen_plan = 'Другие'
+        current_gen_plan = None
 
         print()
 
@@ -148,8 +148,12 @@ def upload(file_name: str):
 
                 color = cell_color(wb, row[1])
                 if color in BLUE_COLORS:
-                    pass
-                elif color in GREEN_COLORS:
+                    if current_gen_plan is None:
+                        current_gen_plan = data
+                    else:
+                        continue
+
+                if color in GREEN_COLORS:
                     current_gen_plan = data
 
                 if mst is not None and mst.strip():
