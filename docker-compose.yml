@@ -1,0 +1,61 @@
+version: "3"
+
+services:
+    db:
+        build:
+            context: ./database
+            dockerfile: Dockerfile
+        restart: always
+        env_file:
+            - database/.env
+        ports:
+            - "127.0.0.1:5433:5432"
+        volumes:
+            - ./database/:/db/
+        networks:
+            - internal
+
+    tests:
+        build:
+            context: .
+            dockerfile: ./test/Dockerfile
+        environment:
+            POSTGRES_PORT: 5433
+        env_file:
+            - database/.env
+        command: 'python3 -m unittest test/db_test.py'
+        networks:
+            - internal
+        depends_on:
+            - db
+
+    bot:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        restart: on-failure
+        environment:
+            POSTGRES_PORT: 5433
+        env_file:
+            - database/.env
+            - .env
+        volumes:
+            - ./controller/:/controller/
+            - ./database/:/database/
+            - ./dto/:/dto/
+            - ./exceptions/:/exceptions/
+            - ./logs/:/bot/logs/
+            - ./repository/:/repository/
+            - ./resources/:/resources/
+            - ./service/:/service/
+            - ./main.py:/main.py
+        command: 'python3 main.py'
+        networks:
+            - internal
+        depends_on:
+            - db
+            - tests
+
+networks:
+    internal:
+        driver: bridge
