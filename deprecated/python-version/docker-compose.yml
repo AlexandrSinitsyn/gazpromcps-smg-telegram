@@ -3,8 +3,8 @@ version: "3"
 services:
     db:
         build:
-            context: ./database
-            dockerfile: Dockerfile
+            context: database
+            dockerfile: database/Dockerfile
         restart: always
         env_file:
             - database/.env
@@ -17,8 +17,8 @@ services:
 
     tests:
         build:
-            context: .
-            dockerfile: ./test/Dockerfile
+            context: ../..
+            dockerfile: test/Dockerfile
         environment:
             POSTGRES_PORT: 5433
         env_file:
@@ -31,7 +31,7 @@ services:
 
     bot:
         build:
-            context: .
+            context: ../..
             dockerfile: Dockerfile
         restart: on-failure
         environment:
