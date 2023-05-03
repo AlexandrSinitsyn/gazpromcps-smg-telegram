@@ -104,7 +104,7 @@ public abstract class AbstractBot extends TelegramLongPollingBot {
         try {
             executeAsync(message);
         } catch (final TelegramApiException e) {
-            log.error(e.getMessage());
+            log.error("!!! TelegramApiException[send]: (%10d, %s) >> %s".formatted(chatId, text, e.getMessage()));
         }
     }
 
@@ -125,7 +125,7 @@ public abstract class AbstractBot extends TelegramLongPollingBot {
         try {
             executeAsync(message);
         } catch (final TelegramApiException e) {
-            log.error(e.getMessage());
+            log.error("!!! TelegramApiException[edit]: (%10d, msg: %10d, %s) >> %s".formatted(chatId, messageId, text, e.getMessage()));
         }
     }
 }

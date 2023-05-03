@@ -48,7 +48,7 @@ public class ExceptionHandler {
 
             bot.send(resourcesHandler.variable(e.getType().getMessage()), null);
 
-            log.warn(e.getBot().getSession().getUser().getName() + " -> " + e.getType());
+            log.warn("%s [%s] -> %s".formatted(e.getBot().getSession().getUser().getName(), joinPoint.getSignature().getName(), e.getType().name()));
         } catch (final BotLogicError e) {
             log.error("!!!FATAL!!!\n" + e.getMessage());
 
