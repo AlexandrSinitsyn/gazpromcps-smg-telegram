@@ -7,5 +7,6 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AskOnEnd {
     String question();
-    ButtonRow[] buttons();
+    ButtonRow[] buttons() default {};
+    boolean edit() default false;
 }

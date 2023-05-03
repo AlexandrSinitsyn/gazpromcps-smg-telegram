@@ -13,6 +13,7 @@ import gazpromcps.smg.exceptions.BotLogicError;
 import gazpromcps.smg.service.ExcelService;
 import gazpromcps.smg.service.ExcelService.XlsxReader;
 import gazpromcps.smg.utils.Session;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -65,27 +66,24 @@ public class QueryHandler extends AbstractQueryHandler {
                 case "make-report" -> // make-report, userId, step, index
                         self(QueryHandler.class).makeReport(bot, null, null, null);
                 case "yes" -> {
-                    if (bot.getSession().getHolding() != null) {
+                    if (bot.getSession().awaitResponse()) {
+                        bot.getSession().<JobListHolder>getHolding(bot).acceptAll();
+
                         self(QueryHandler.class).saveNewJobs(bot);
                     } else {
                         self(QueryHandler.class).attachMedia(bot);
                     }
                 }
                 case "no" -> {
-                    if (bot.getSession().getHolding() != null) {
-                        try {
-                            //noinspection unchecked
-                            final List<Job> jobList = (List<Job>) session.getHolding();
+                    if (bot.getSession().awaitResponse()) {
+                        final JobListHolder jobList = session.getHolding(bot);
 
-                            session.reset(jobList.stream().collect(Collectors.groupingBy(Job::getMaster)).values().stream()
-                                    .map(line -> line.get(0)).toList());
+                        session.reset(jobList.getJobs().stream().collect(Collectors.groupingBy(Job::getMaster)).values().stream()
+                                .map(line -> line.get(0)).toList());
 
-                            session.forward();
+                        session.forward();
 
-                            editJobs(message, bot);
-                        } catch (final ClassCastException ignored) {
-                            throw new BotException(bot, BotErrorType.INVALID_REQUEST_SEQUENCE);
-                        }
+                        editJobs(message, bot);
                     } else {
                         self(QueryHandler.class).noMedia(bot);
                     }
@@ -94,7 +92,8 @@ public class QueryHandler extends AbstractQueryHandler {
                 case "decline" -> self(QueryHandler.class).declineUser(bot, null, null);
                 case "finish-registration" -> ((Bot) bot.getBot()).runCommandHandler(bot, "/reload");
                 case "update-report" -> self(QueryHandler.class).updateReport(bot, null);
-                case "choose-new-master" -> self(QueryHandler.class).saveNewJobsByMaster(bot, null);
+                case "choose-new-master" -> self(QueryHandler.class).acceptMaster(bot, null);
+                case "submit-master" -> self(QueryHandler.class).saveNewJobs(bot);
                 default -> throw new BotException(bot, BotErrorType.INVALID_COMMAND_USAGE);
             }
         } catch (final BotException e) {
@@ -113,7 +112,7 @@ public class QueryHandler extends AbstractQueryHandler {
     }
 
     @QueryArgs(regex = {"\\d+", "\\w+"})
-    @AskOnEnd(question = "accepted", buttons = {})
+    @AskOnEnd(question = "accepted", edit = true)
     public void promote(final BotController bot,
                         @SuppressWarnings("DataFlowIssue") final Long otherUserId,
                         final Integer roleOrdinal) {
@@ -226,37 +225,27 @@ public class QueryHandler extends AbstractQueryHandler {
     }
 
     @Async
-    @AskOnEnd(question = "accepted", buttons = {})
+    @AskOnEnd(question = "accepted", edit = true)
     public void saveNewJobs(final BotController bot) {
-        try {
-            //noinspection unchecked
-            final List<Job> jobList = (List<Job>) bot.getSession().getHolding();
+        final JobListHolder jobList = bot.getSession().getHolding(bot);
 
-            bot.getSession().setHolding(null);
+        bot.getSession().setHolding(null);
 
-            jobService.update(jobList);
-        } catch (final ClassCastException ignored) {
-            throw new BotException(bot, BotErrorType.INVALID_REQUEST_SEQUENCE);
-        }
+        jobService.update(jobList.byMasters());
     }
 
     @Async
     @QueryArgs(regex = "\\d+")
-    public void saveNewJobsByMaster(final BotController bot,
+    public void acceptMaster(final BotController bot,
                                     @SuppressWarnings({"SameParameterValue", "DataFlowIssue"}) final Long masterId) {
         final Session session = bot.getSession();
 
         try {
-            //noinspection unchecked
-            final List<Job> jobList = (List<Job>) session.getHolding();
+            final JobListHolder jobList = session.getHolding(bot);
 
             final String master = session.interval().get((int) (masterId - 1 - session.getPointer())).getMaster();
 
-            session.setHolding(jobList.stream().filter(j -> j.getMaster().equals(master)).toList());
-
-            self(QueryHandler.class).saveNewJobs(bot);
-        } catch (final ClassCastException ignored) {
-            throw new BotException(bot, BotErrorType.INVALID_REQUEST_SEQUENCE);
+            jobList.acceptMaster(master);
         } catch (final NumberFormatException e) {
             throw new BotException(bot, BotErrorType.UNKNOWN_ERROR, e);
         }
@@ -286,12 +275,8 @@ public class QueryHandler extends AbstractQueryHandler {
                              @SuppressWarnings("SameParameterValue") final Double count) {
         final Session session = bot.getSession();
 
-        if (session.getHolding() != null) {
-            try {
-                completedJobService.updateCompletedJob((Long) session.getHolding(), count);
-            } catch (final ClassCastException ignored) {
-                throw new BotException(bot, BotErrorType.INVALID_REQUEST_SEQUENCE);
-            }
+        if (session.awaitResponse()) {
+            completedJobService.updateCompletedJob(session.getHolding(bot), count);
             session.setHolding(null);
             return;
         }
@@ -379,16 +364,52 @@ public class QueryHandler extends AbstractQueryHandler {
                 );
             });
 
-            bot.getSession().setHolding(data);
+            bot.getSession().setHolding(new JobListHolder(data));
         } catch (final Exception e) {
             throw new BotException(bot, BotErrorType.UNKNOWN_ERROR, e);
         }
     }
 
     @Async
-    @AskOnEnd(question = "accepted", buttons = {})
+    @AskOnEnd(question = "accepted")
     @FinalAction
     public void loadMedia(final BotController bot, final File file, final String filename) throws TelegramApiException {
         bot.getBot().downloadFile(file, mediaService.saveMedia(filename));
+    }
+}
+
+@Getter
+final class JobListHolder {
+    private final List<Job> jobs;
+    private final Set<String> acceptedMasters = new HashSet<>();
+    private final Set<String> allMasters;
+
+    public JobListHolder(final List<Job> jobs) {
+        this.jobs = jobs;
+        allMasters = jobs.stream().map(Job::getMaster).collect(Collectors.toSet());
+    }
+
+    public boolean acceptMaster(final String master) {
+        if (allMasters.contains(master)) {
+            if (acceptedMasters.contains(master)) {
+                return !acceptedMasters.remove(master);
+            } else {
+                return acceptedMasters.add(master);
+            }
+        }
+
+        return false;
+    }
+
+    public boolean isMasterAccepted(final String master) {
+        return acceptedMasters.contains(master);
+    }
+
+    public void acceptAll() {
+        acceptedMasters.addAll(allMasters);
+    }
+
+    public List<Job> byMasters() {
+        return jobs.stream().filter(j -> acceptedMasters.contains(j.getMaster())).toList();
     }
 }

@@ -134,7 +134,7 @@ public class FileHandler extends AbstractQueryHandler {
     @Async
     @QueryMapper("/importxlsx")
     @RestrictedAccess(minAllowed = Role.MANAGER)
-    @AskOnEnd(question = "provide-the-file", buttons = {})
+    @AskOnEnd(question = "provide-the-file")
     public void importXlsx(final BotController bot) {}
 
     @Async

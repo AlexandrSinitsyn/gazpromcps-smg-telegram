@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 public class CommandHandler extends AbstractQueryHandler {
     @Async
     @QueryMapper("/start")
-    @AskOnEnd(question = "description" /*todo name-your-company*/, buttons = {})
+    @AskOnEnd(question = "description" /*todo name-your-company*/)
     @Unwelcome(maxWelcome = Role.USER)
     public void start(final BotController bot) {
         final Update update = bot.getUpdate();
@@ -57,7 +57,7 @@ public class CommandHandler extends AbstractQueryHandler {
     @QueryMapper("/register")
     @QueryArgs(regex = ".*")
     @Unwelcome(maxWelcome = Role.USER)
-    @AskOnEnd(question = "await-register", buttons = {})
+    @AskOnEnd(question = "await-register")
     public void register(final BotController bot, final String token) {
         final List<User> canRegister = userService.findAllByMinRole(Role.SERVICE);
 

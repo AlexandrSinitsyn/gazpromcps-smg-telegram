@@ -143,7 +143,11 @@ public class AspectService {
                                 .callbackData(name).build()
                         ).toList()).toList());
 
-        bot.send(bot.i18n(askOnEnd.question()), markup);
+        if (askOnEnd.edit()) {
+            bot.edit(bot.chatId(), bot.message().getMessageId(), bot.i18n(askOnEnd.question()), markup);
+        } else {
+            bot.send(bot.i18n(askOnEnd.question()), markup);
+        }
     }
 
     @After("@annotation(finalAction)")

@@ -76,15 +76,9 @@ public abstract class AbstractQueryHandler {
     protected void editJobs(final Message message, final BotController bot) {
         final Session session = bot.getSession();
 
-        if (session.getHolding() != null) {
-            bot.edit(message.getChatId(), message.getMessageId(),
-                    bot.i18n("select-type") + ":\n" + session.showInterval(),
-                    showMastersNavigation(bot));
-        } else {
-            bot.edit(message.getChatId(), message.getMessageId(),
-                    bot.i18n("select-type") + ":\n" + session.showInterval(),
-                    showJobsNavigation(bot));
-        }
+        bot.edit(message.getChatId(), message.getMessageId(),
+                bot.i18n("select-type") + ":\n" + session.showInterval(),
+                showJobsNavigation(bot));
     }
 
     protected InlineKeyboardMarkup showJobsNavigation(final BotController bot) {
@@ -97,33 +91,27 @@ public abstract class AbstractQueryHandler {
             default -> List.of(button("←", "left"), button("→", "right"));
         };
 
-        final AtomicInteger index = new AtomicInteger(session.getPointer() + 1);
-        return new InlineKeyboardMarkup(List.of(
-                session.interval().stream().map(j ->
-                        button(String.valueOf(index.getAndIncrement()),
-                                "make-report %d %d %d".formatted(bot.userId(), session.getStep(), j.getId()))).toList(),
-                navigation,
-                session.getStep() == 0 ? List.of() : List.of(button(bot.i18n("back"), "back")),
-                List.of(button(bot.i18n("all-jobs"), "all"))
-        ));
-    }
-
-    protected InlineKeyboardMarkup showMastersNavigation(final BotController bot) {
-        final Session session = bot.getSession();
-
-        final List<InlineKeyboardButton> navigation = switch (session.hitBounds()) {
-            case 0 -> List.of();
-            case 1 -> List.of(button("←", "left"));
-            case 2 -> List.of(button("→", "right"));
-            default -> List.of(button("←", "left"), button("→", "right"));
-        };
-
         final AtomicInteger index = new AtomicInteger(session.getPointer());
-        return new InlineKeyboardMarkup(List.of(
-                session.interval().stream().map(j ->
-                        button(String.valueOf(index.incrementAndGet()),
-                                "choose-new-master %d".formatted(index.get()))).toList(),
-                navigation)
-        );
+
+        if (session.awaitResponse()) {
+            final JobListHolder jobList = session.getHolding(bot);
+
+            return new InlineKeyboardMarkup(List.of(
+                    session.interval().stream().map(j ->
+                            button(index.incrementAndGet() + (jobList.acceptMaster(j.getMaster()) ? "✓" : ""),
+                                    "choose-new-master %d".formatted(index.get()))).toList(),
+                    navigation,
+                    List.of(button(bot.i18n("submit-masters"), "submit-master")))
+            );
+        } else {
+            return new InlineKeyboardMarkup(List.of(
+                    session.interval().stream().map(j ->
+                            button(String.valueOf(index.incrementAndGet()),
+                                    "make-report %d %d %d".formatted(bot.userId(), session.getStep(), j.getId()))).toList(),
+                    navigation,
+                    session.getStep() == 0 ? List.of() : List.of(button(bot.i18n("back"), "back")),
+                    List.of(button(bot.i18n("all-jobs"), "all"))
+            ));
+        }
     }
 }

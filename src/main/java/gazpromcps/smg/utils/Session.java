@@ -1,7 +1,10 @@
 package gazpromcps.smg.utils;
 
+import gazpromcps.smg.controller.BotController;
 import gazpromcps.smg.entity.Job;
 import gazpromcps.smg.entity.User;
+import gazpromcps.smg.exceptions.BotErrorType;
+import gazpromcps.smg.exceptions.BotException;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -36,9 +39,21 @@ public final class Session {
     @Getter
     private final ResourcesHandler resourcesHandler = new ResourcesHandler(Locale.getDefault());
 
-    @Getter
     @Setter
     private Object holding;
+
+    public boolean awaitResponse() {
+        return holding != null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T getHolding(final BotController bot) {
+        try {
+            return (T) holding;
+        } catch (final ClassCastException ignored) {
+            throw new BotException(bot, BotErrorType.INVALID_REQUEST_SEQUENCE);
+        }
+    }
 
     public Session(final User user) {
         this.user = user;
