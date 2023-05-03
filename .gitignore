@@ -45,3 +45,4 @@ src/main/resources/workplans
 src/main/resources/media
 src/main/resources/static
 src/main/resources/statistics
+logs/smg-bot.log
