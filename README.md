@@ -56,10 +56,9 @@ Use `docker-compose up -d` to start
 | loki      | 3100:3100 | handles promtail logs database   |
 | grafana   | 3000:3000 | for bot metrics (logs as one of) |
 
-
 ---
 
 ### Grafana setup
 
 [Grafana (http://localhost:3000)](http://localhost:3000) &rarr; Data source &rarr; Add new data source &rarr;
-Loki &rarr; Url: http://loki:3100 &rarr; Explore &rarr; Log browser: `{job="varlogs"} |= "ERROR"`
+Loki &rarr; Url: http://loki:3100 &rarr; Dashboards &rarr; General &rarr; telegram-smg-gazpromcps

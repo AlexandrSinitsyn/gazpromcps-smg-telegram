@@ -12,7 +12,7 @@ common:
             rules_directory: /tmp/loki/rules
     replication_factor: 1
     ring:
-        instance_addr: localhost
+        instance_addr: smg-loki
         kvstore:
             store: inmemory
 
@@ -26,5 +26,8 @@ schema_config:
               prefix: index_
               period: 24h
 
+limits_config:
+    max_label_value_length: 10000
+
 ruler:
-    alertmanager_url: http://localhost:9093
+    alertmanager_url: http://smg-promtail:9093

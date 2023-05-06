@@ -1,10 +1,12 @@
 version: '3.7'
 
+name: 'smg-gazpromcps'
 services:
     backend:
         build:
             context: .
             dockerfile: Dockerfile
+        container_name: 'telegram-bot-smg'
         ports:
             - "8080:8080"
         environment:
@@ -20,6 +22,7 @@ services:
 
     postgres:
         image: postgres:15
+        container_name: 'smg-postgres'
         ports:
             - "5432:5432"
         restart: always
@@ -35,6 +38,7 @@ services:
 
     loki:
         image: grafana/loki:2.4.0
+        container_name: 'smg-loki'
         volumes:
             - loki-data:/etc/loki
             - ./logs/loki-config.yaml:/etc/loki/loki-config.yml
@@ -49,6 +53,7 @@ services:
 
     promtail:
         image: grafana/promtail:2.4.0
+        container_name: 'smg-promtail'
         volumes:
             - ./logs:/var/log
             - promtail-data:/etc/promtail
@@ -61,12 +66,17 @@ services:
             - backend
 
     grafana:
-        image: grafana/grafana:8.0.0
-        volumes:
-            - grafana-data:/var/lib/grafana
+        build:
+            context: grafana
+            dockerfile: Dockerfile
+        container_name: 'grafana'
         ports:
             - "3000:3000"
         restart: unless-stopped
+        env_file:
+            - grafana/grafana.env
+        volumes:
+            - grafana-data:/var/lib/grafana
         networks:
             - loki
         depends_on:

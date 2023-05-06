@@ -1,26 +1,55 @@
 server:
-    http_listen_port: 9080
-    grpc_listen_port: 0
+  http_listen_port: 9080
+  grpc_listen_port: 0
 
 positions:
-    filename: /tmp/positions.yaml
+  filename: /tmp/positions.yaml
 
 clients:
-    - url: http://loki:3100/loki/api/v1/push
+- url: http://smg-loki:3100/loki/api/v1/push
 
 scrape_configs:
-    - job_name: local
-      static_configs:
-          - targets:
-                - localhost
-            labels:
-                job: varlogs
-                __path__: /var/log/*log
+  - job_name: local
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: telegram-smg-logs
+          __path__: /var/log/*log
+    pipeline_stages:
+      - match:
+          selector: '{job="telegram-smg-logs"}'
+          stages:
+            - multiline:
+                firstline: '^\# \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
+                max_wait_time: 0.5s
+            - regex:
+                expression: '^\# (?P<date>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(?P<level>\w+)\s+---\s+\[\s*(?P<thread>\S+)\s*\]\s+(?P<trigger>\S+)\s+--\s+(?P<log_message>[^\#]*)'
+            - regex:
+                source: log_message
+                expression: '(\!\!\! FATAL \!\!\!\s*(?P<error>[^\#]*))|((\>|\<|\!)\s+(?P<smg_log>[^\#]*))|(?P<syslog>[^\#]*)'
+            - regex:
+                source: smg_log
+                expression: '\s*(?P<type>INVOKE|RESPONSE|ERROR):\s+{\s*(?P<uid>-?\d+),\s*(?P<role>\w+),\s*(?P<name>[^}]+)\s*},\s+(?P<message>[^\#]*)'
+            - regex:
+                source: message
+                expression: '\s*(?P<command>(/\w+)|(\d+(\.\d+)?))|(button_data:\s*(?P<button>\S+)\s*(?P<args>[^\#]*))'
+            - template:
+                source: args
+                template: '[{{ Replace .Value " " ", " }}]'
+            - labels:
+                data:
+                level:
+                thread:
+                trigger:
 
-    - job_name: docker
-      pipeline_stages:
-        - docker: {}
-      static_configs:
-        - labels:
-            job: docker
-            __path__: /var/lib/docker/containers/*/*-json.log
+                error:
+                syslog:
+
+                type:
+                uid:
+                role:
+                name:
+                command:
+                button_data:
+                args:
