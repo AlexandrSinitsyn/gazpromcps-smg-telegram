@@ -60,5 +60,5 @@ Use `docker-compose up -d` to start
 
 ### Grafana setup
 
-[Grafana (http://localhost:3000)](http://localhost:3000) &rarr; Data source &rarr; Add new data source &rarr;
-Loki &rarr; Url: http://loki:3100 &rarr; Dashboards &rarr; General &rarr; telegram-smg-gazpromcps
+* [Grafana (http://localhost:3000)](http://localhost:3000) &rarr; Dashboards &rarr; General &rarr; telegram-smg-gazpromcps
+* [Real time logging] Exprore &rarr; loki &rarr; `job="telegram-smg-logs"` &rarr; _Run query_

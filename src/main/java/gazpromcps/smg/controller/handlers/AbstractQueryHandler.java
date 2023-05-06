@@ -101,7 +101,7 @@ public abstract class AbstractQueryHandler {
                             button(index.incrementAndGet() + (jobList.acceptMaster(j.getMaster()) ? "✓" : ""),
                                     "choose-new-master %d".formatted(index.get()))).toList(),
                     navigation,
-                    List.of(button(bot.i18n("submit-masters"), "submit-master")))
+                    List.of(button(bot.i18n("done"), "submit-master")))
             );
         } else {
             return new InlineKeyboardMarkup(List.of(
