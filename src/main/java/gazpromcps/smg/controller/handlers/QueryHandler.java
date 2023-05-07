@@ -92,7 +92,10 @@ public class QueryHandler extends AbstractQueryHandler {
                 case "decline" -> self(QueryHandler.class).declineUser(bot, null, null);
                 case "finish-registration" -> ((Bot) bot.getBot()).runCommandHandler(bot, "/reload");
                 case "update-report" -> self(QueryHandler.class).updateReport(bot, null);
-                case "choose-new-master" -> self(QueryHandler.class).acceptMaster(bot, null);
+                case "choose-new-master" -> {
+                    self(QueryHandler.class).acceptMaster(bot, null);
+                    editJobs(message, bot);
+                }
                 case "submit-master" -> self(QueryHandler.class).saveNewJobs(bot);
                 default -> throw new BotException(bot, BotErrorType.INVALID_COMMAND_USAGE);
             }

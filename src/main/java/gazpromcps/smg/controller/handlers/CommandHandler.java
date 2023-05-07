@@ -93,7 +93,7 @@ public class CommandHandler extends AbstractQueryHandler {
 
         session.reset(jobService.findAllActive());
 
-        bot.send(bot.i18n("select-type") + ":\n" + session.showInterval(),
+        bot.send(bot.i18n("select-type") + ":\n" + session.showInterval(Set.of()),
                 showJobsNavigation(bot));
     }
 

@@ -16,6 +16,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 @Slf4j
@@ -67,8 +68,8 @@ public abstract class AbstractQueryHandler {
         final String[][] buttons = bot.getSession().getUser().getRole().getAvailableButtons();
 
         final var keyboardMarkup = new ReplyKeyboardMarkup(Arrays.stream(buttons).map(line ->
-                new KeyboardRow(Arrays.stream(line).map(name -> bot.i18n("button-" + name)).map(KeyboardButton::new
-                ).toList())).toList());
+                new KeyboardRow(Arrays.stream(line).map(name -> bot.i18n("button-" + name))
+                        .map(KeyboardButton::new).toList())).toList());
         keyboardMarkup.setOneTimeKeyboard(true);
         return keyboardMarkup;
     }
@@ -76,9 +77,22 @@ public abstract class AbstractQueryHandler {
     protected void editJobs(final Message message, final BotController bot) {
         final Session session = bot.getSession();
 
-        bot.edit(message.getChatId(), message.getMessageId(),
-                bot.i18n("select-type") + ":\n" + session.showInterval(),
-                showJobsNavigation(bot));
+        if (session.awaitResponse()) {
+            final Set<String> masters = session.<JobListHolder> getHolding(bot).getAcceptedMasters();
+
+            bot.edit(message.getChatId(), message.getMessageId(),
+                    bot.i18n("select-type") + ":\n" +
+                            (session.awaitResponse()
+                                    ? session.showInterval(masters) +
+                                    "\n" + bot.i18n("all-jobs") + ":\n" +
+                                    masters.stream().map(s -> "- " + s).collect(Collectors.joining("\n"))
+                                    : session.showInterval(Set.of())),
+                    showJobsNavigation(bot));
+        } else {
+            bot.edit(message.getChatId(), message.getMessageId(),
+                    bot.i18n("select-type") + ":\n" + session.showInterval(Set.of()),
+                    showJobsNavigation(bot));
+        }
     }
 
     protected InlineKeyboardMarkup showJobsNavigation(final BotController bot) {
@@ -98,7 +112,7 @@ public abstract class AbstractQueryHandler {
 
             return new InlineKeyboardMarkup(List.of(
                     session.interval().stream().map(j ->
-                            button(index.incrementAndGet() + (jobList.acceptMaster(j.getMaster()) ? "✓" : ""),
+                            button(index.incrementAndGet() + (jobList.isMasterAccepted(j.getMaster()) ? "✓" : ""),
                                     "choose-new-master %d".formatted(index.get()))).toList(),
                     navigation,
                     List.of(button(bot.i18n("done"), "submit-master")))

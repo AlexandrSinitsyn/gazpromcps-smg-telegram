@@ -3,6 +3,7 @@ package gazpromcps.smg.service;
 import gazpromcps.smg.entity.Job;
 import gazpromcps.smg.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,8 +25,13 @@ public class JobService {
         deactivate();
 
         final List<Job> newJobs = list.stream().filter(j -> {
-            final var found = jobRepository.findByStageAndMasterAndObjectAndTitleAndMeasurement(
-                    j.getStage(), j.getMaster(), j.getObject(), j.getTitle(), j.getMeasurement());
+            final Job found;
+            try {
+                found = jobRepository.findByStageAndMasterAndObjectAndTitleAndMeasurement(
+                        j.getStage(), j.getMaster(), j.getObject(), j.getTitle(), j.getMeasurement());
+            } catch (final IncorrectResultSizeDataAccessException e) {
+                return false;
+            }
 
             if (found != null) {
                 jobRepository.activateById(found.getId());

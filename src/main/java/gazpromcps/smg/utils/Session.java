@@ -110,15 +110,15 @@ public final class Session {
         jobsByStep(jobs);
     }
 
-    public String showInterval() {
+    public String showInterval(final Set<String> toHighlight) {
         final AtomicInteger index = new AtomicInteger(pointer);
-        return interval().stream().map(j -> index.incrementAndGet() + ") " + switch (step) {
+        return interval().stream().map(j -> switch (step) {
             case 0 -> j.getStage();
             case 1 -> j.getMaster();
             case 2 -> j.getObject();
             case 3 -> "%s (%s)".formatted(j.getTitle(), j.getMeasurement());
             default -> throw new IllegalStateException();
-        }).collect(Collectors.joining("\n"));
+        }).map(s -> index.incrementAndGet() + ") " + (toHighlight.contains(s) ? "[✓] <strong>" + s + "</strong>" : s)).collect(Collectors.joining("\n"));
     }
 
     private void jobsByStep(final List<Job> jobs) {
